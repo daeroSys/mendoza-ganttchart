@@ -12,7 +12,7 @@ import {
   HelpCircle,
   AlertCircle
 } from 'lucide-react';
-import { Task, ZoomLevel, FilterOptions, Project } from './types';
+import { Task, ZoomLevel, FilterOptions, Project, ProjectDiagram } from './types';
 import { DEFAULT_TASKS } from './data/defaultTasks';
 import { calculateTimelineBounds, getDaysDiff, getPxPerDay, getTodayStr } from './utils/dateUtils';
 import GanttChartHeader from './components/GanttChartHeader';
@@ -23,10 +23,32 @@ import HomePage from './components/HomePage';
 import ExportModal from './components/ExportModal';
 import UserIdentityModal from './components/UserIdentityModal';
 import ActivityLogPanel from './components/ActivityLogPanel';
+import DiagramsHub from './components/DiagramsHub';
 import { exportElementAsImage } from './utils/exportUtils';
 
 const STORAGE_ZOOM_KEY = 'gantt_planner_zoom';
 const STORAGE_THEME_KEY = 'gantt_planner_theme';
+
+const getDefaultDiagrams = (): ProjectDiagram[] => [
+  {
+    id: 'diag-flowchart',
+    title: 'Flowchart',
+    imageUrl: '',
+    description: 'System-level architecture showing process flow and data routing logic between cellular clients and core nodes.'
+  },
+  {
+    id: 'diag-dfd',
+    title: 'DFD',
+    imageUrl: '',
+    description: 'Data Flow Diagram highlighting data exchange checkpoints from user interfaces, SMS relay gateways, and smart contracts.'
+  },
+  {
+    id: 'diag-erd',
+    title: 'ERD',
+    imageUrl: '',
+    description: 'Entity Relationship Diagram describing metadata tables, task fields, activity trace logs, and database linkages.'
+  }
+];
 
 const isDev = (import.meta as any).env.DEV;
 const API_BASE = isDev ? `http://${window.location.hostname}:3001` : window.location.origin;
@@ -119,6 +141,9 @@ export default function App() {
           const res = await fetch(`${API_BASE}/api/projects/${projectId}`);
           if (res.ok) {
             const data = await res.json();
+            if (!data.diagrams || data.diagrams.length === 0) {
+              data.diagrams = getDefaultDiagrams();
+            }
             setProjects(prev => {
               const exists = prev.some(p => p.id === projectId);
               if (exists) {
@@ -209,14 +234,16 @@ export default function App() {
                   const hasPersonnelChanged = JSON.stringify(p.personnel) !== JSON.stringify(data.project.personnel);
                   const hasNameChanged = p.name !== data.project.name;
                   const hasTagChanged = p.tag !== data.project.tag;
+                  const hasDiagramsChanged = JSON.stringify(p.diagrams) !== JSON.stringify(data.project.diagrams);
 
-                  if (hasTasksChanged || hasPersonnelChanged || hasNameChanged || hasTagChanged) {
+                  if (hasTasksChanged || hasPersonnelChanged || hasNameChanged || hasTagChanged || hasDiagramsChanged) {
                     return {
                       ...p,
                       name: data.project.name,
                       tag: data.project.tag,
                       tasks: data.project.tasks,
-                      personnel: data.project.personnel
+                      personnel: data.project.personnel,
+                      diagrams: data.project.diagrams
                     };
                   }
                 }
@@ -350,6 +377,34 @@ export default function App() {
     }
   };
 
+  const handleUpdateDiagrams = async (newDiagrams: ProjectDiagram[], details: string) => {
+    if (!activeProjectId || !activeProject) return;
+
+    const newLogEntry = {
+      id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+      timestamp: new Date().toISOString(),
+      user: currentUser || 'Anonymous',
+      actionType: 'project_update' as const,
+      details,
+    };
+    const updatedLogs = [newLogEntry, ...(activeProject.logs || [])].slice(0, 100);
+    const updatedProject = { ...activeProject, diagrams: newDiagrams, logs: updatedLogs };
+
+    // Update local state immediately
+    setProjects(prev => prev.map(p => p.id === activeProjectId ? updatedProject : p));
+    broadcastUpdate(updatedProject);
+
+    try {
+      await fetch(`${API_BASE}/api/projects/${activeProjectId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedProject),
+      });
+    } catch (err) {
+      console.error('Error saving diagrams to server:', err);
+    }
+  };
+
   const handleZoomChange = (newZoom: ZoomLevel) => {
     setZoom(newZoom);
     localStorage.setItem(STORAGE_ZOOM_KEY, newZoom);
@@ -372,6 +427,7 @@ export default function App() {
       tasks: [],
       personnel: [],
       tag: tag || 'Visualize, orchestrate, and trace project milestones and tasks interactively.',
+      diagrams: getDefaultDiagrams(),
     };
 
     setProjects(prev => [...prev, newProject]);
@@ -728,32 +784,12 @@ export default function App() {
           />
         </section>
 
-        {/* Quick Instructions & Floating Help card */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-100/50 dark:bg-slate-900/30 border border-slate-200/55 dark:border-slate-800/60 p-6 rounded-3xl" id="dashboard-instructions-card">
-          <div className="flex gap-4">
-            <div className="p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shrink-0 h-11.5 flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-indigo-500" />
-            </div>
-            <div>
-              <h4 className="font-bold text-slate-800 dark:text-slate-200 font-sans">Interactive Layout Adjustments</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-sans mt-1">
-                You can drag any timeline bar to modify task durations. Hover over the bar boundaries to expose <strong>Left/Right resize controls</strong>. Drag the middle of the task box to shift entire task schedule blocks forward or backward.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <div className="p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shrink-0 h-11.5 flex items-center justify-center">
-              <HelpCircle className="w-5 h-5 text-indigo-500" />
-            </div>
-            <div>
-              <h4 className="font-bold text-slate-800 dark:text-slate-200 font-sans">Dependency Trace Vectors</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-sans mt-1">
-                To link tasks, click <strong>Add Task</strong> or edit an existing one, and choose a dependency target. Safe orthogonal vector lines will automatically draw across rows with arrows indicating visual workflow paths.
-              </p>
-            </div>
-          </div>
-        </section>
+        {/* Project Architecture & Design Diagrams Hub */}
+        <DiagramsHub
+          diagrams={activeProject?.diagrams || []}
+          onUpdateDiagrams={handleUpdateDiagrams}
+          restrictedMode={!isOwner}
+        />
 
       </main>
 

@@ -25,6 +25,13 @@ export interface ActivityLog {
   details: string;
 }
 
+export interface ProjectDiagram {
+  id: string;
+  title: string;
+  imageUrl: string;
+  description?: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -33,6 +40,7 @@ export interface Project {
   personnel: string[];
   tag?: string;
   logs?: ActivityLog[];
+  diagrams?: ProjectDiagram[];
 }
 
 export type ZoomLevel = 'day' | 'week' | 'month';

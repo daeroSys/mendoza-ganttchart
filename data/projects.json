@@ -216,6 +216,41 @@
     "tag": "Universal Web3 Liquidity, Powered by Cellular.",
     "logs": [
       {
+        "id": "log-1780137983214-tch4tylio",
+        "timestamp": "2026-05-30T10:46:23.214Z",
+        "user": "Cedric",
+        "actionType": "project_update",
+        "details": "deleted architecture diagram \"Flowchart\""
+      },
+      {
+        "id": "log-1780137969620-ns16t5dqo",
+        "timestamp": "2026-05-30T10:46:09.620Z",
+        "user": "Cedric",
+        "actionType": "project_update",
+        "details": "linked image URL to \"Flowchart\""
+      },
+      {
+        "id": "log-1780137795567-qcsiev388",
+        "timestamp": "2026-05-30T10:43:15.567Z",
+        "user": "Cedric",
+        "actionType": "project_update",
+        "details": "created diagram tab \"Flowchart\""
+      },
+      {
+        "id": "log-1780137783011-p3bgku1mo",
+        "timestamp": "2026-05-30T10:43:03.011Z",
+        "user": "Cedric",
+        "actionType": "project_update",
+        "details": "deleted architecture diagram \"Flowchart\""
+      },
+      {
+        "id": "log-1780137770896-jfxraqguw",
+        "timestamp": "2026-05-30T10:42:50.896Z",
+        "user": "Cedric",
+        "actionType": "project_update",
+        "details": "linked image URL to \"Flowchart\""
+      },
+      {
         "id": "log-1780134767573-ch99czcx5",
         "timestamp": "2026-05-30T09:52:47.573Z",
         "user": "Cedric",
@@ -228,6 +263,20 @@
         "user": "Erickson",
         "actionType": "task_update",
         "details": "updated progress of task \"Tasks 1.3 - Fix the SMS Dispatch Bug\" to 5%"
+      }
+    ],
+    "diagrams": [
+      {
+        "id": "diag-dfd",
+        "title": "DFD",
+        "imageUrl": "",
+        "description": "Data Flow Diagram highlighting data exchange checkpoints from user interfaces, SMS relay gateways, and smart contracts."
+      },
+      {
+        "id": "diag-erd",
+        "title": "ERD",
+        "imageUrl": "",
+        "description": "Entity Relationship Diagram describing metadata tables, task fields, activity trace logs, and database linkages."
       }
     ]
   }
