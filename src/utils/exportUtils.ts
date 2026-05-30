@@ -9,20 +9,19 @@ export async function generateExportImage(element: HTMLElement, format: 'png' | 
       // 1. Get full printable size
       let width = element.scrollWidth || 1200;
       let height = element.scrollHeight || 800;
+      let sideTableWidth = 384;
+      let timelineScrollWidth = width;
 
       // The Gantt container has an inner scrollable axis that hides the full width from the parent element's scrollWidth
-      const timelineAxis = element.querySelector('#timeline-scroll-axis');
-      const sideTable = element.querySelector('#side-task-table');
+      const timelineAxis = element.querySelector('#timeline-scroll-axis') as HTMLElement | null;
+      const sideTable = element.querySelector('#side-task-table') as HTMLElement | null;
       if (timelineAxis && sideTable) {
-        const computedStyle = window.getComputedStyle(element);
-        const isCol = computedStyle.flexDirection === 'column';
-        if (isCol) {
-          width = Math.max(sideTable.scrollWidth, timelineAxis.scrollWidth);
-          height = sideTable.scrollHeight + timelineAxis.scrollHeight;
-        } else {
-          width = sideTable.scrollWidth + timelineAxis.scrollWidth;
-          height = Math.max(sideTable.scrollHeight, timelineAxis.scrollHeight);
-        }
+        sideTableWidth = sideTable.offsetWidth || 384;
+        timelineScrollWidth = timelineAxis.scrollWidth;
+
+        // Always compute for row layout (side-by-side) since export forces flex-direction: row
+        width = sideTableWidth + timelineScrollWidth;
+        height = Math.max(sideTable.scrollHeight, timelineAxis.scrollHeight);
       }
 
       // 2. Read styles from style tags, removing imports and external fonts to prevent sandbox blocks
@@ -84,13 +83,27 @@ export async function generateExportImage(element: HTMLElement, format: 'png' | 
                   background: transparent !important;
                 }
                 /* Override scroll restrictions so the full timeline renders */
+                /* Force row layout — lg: breakpoint does not apply inside SVG foreignObject */
                 #gantt-planner-container {
                   overflow: visible !important;
                   width: ${width}px !important;
                   height: ${height}px !important;
+                  display: flex !important;
+                  flex-direction: row !important;
+                  border-radius: 0 !important;
+                }
+                #side-task-table {
+                  width: ${sideTableWidth}px !important;
+                  min-width: ${sideTableWidth}px !important;
+                  flex-shrink: 0 !important;
+                  overflow: visible !important;
+                  border-right: 1px solid rgba(148, 163, 184, 0.2) !important;
+                  border-bottom: none !important;
                 }
                 #timeline-scroll-axis {
                   overflow: visible !important;
+                  flex: 1 !important;
+                  width: ${timelineScrollWidth}px !important;
                 }
                 ]]>
               </style>
