@@ -1,0 +1,6 @@
+{
+  "name": "Gantt Chart Project Planner",
+  "description": "An interactive, client-side Gantt Chart project planner for managing tasks, tracking project progress, and visualizing timelines dynamically.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

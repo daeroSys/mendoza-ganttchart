@@ -1,0 +1,234 @@
+[
+  {
+    "id": "proj-1779861622113",
+    "name": "OmniFi",
+    "createdAt": "2026-05-27T06:00:22.113Z",
+    "tasks": [
+      {
+        "name": "System Architecture Restructuring",
+        "startDate": "2026-05-27",
+        "endDate": "2026-05-30",
+        "progress": 0,
+        "priority": "High",
+        "assignee": [
+          "Cedric"
+        ],
+        "color": "emerald",
+        "dependencies": [],
+        "id": "t-1779861742805"
+      },
+      {
+        "name": "Tasks 1.3 - Fix the SMS Dispatch Bug",
+        "startDate": "2026-06-01",
+        "endDate": "2026-06-03",
+        "progress": 0,
+        "priority": "Medium",
+        "assignee": [
+          "Carl"
+        ],
+        "color": "rose",
+        "dependencies": [],
+        "id": "t-1780085490440"
+      },
+      {
+        "name": "Task 2.1 - The Relayer Bounty Logic (Smart Contract)",
+        "startDate": "2026-06-01",
+        "endDate": "2026-06-07",
+        "progress": 0,
+        "priority": "Medium",
+        "assignee": [
+          "Janrell",
+          "Erickson"
+        ],
+        "color": "rose",
+        "dependencies": [],
+        "id": "t-1780085539778"
+      },
+      {
+        "name": "Task 1.1 - The Unified Dashboard UI",
+        "startDate": "2026-06-04",
+        "endDate": "2026-06-08",
+        "progress": 0,
+        "priority": "Medium",
+        "assignee": [
+          "Carl",
+          "Erickson"
+        ],
+        "color": "rose",
+        "dependencies": [],
+        "id": "t-1780085667093"
+      },
+      {
+        "name": "Task 3.2 - Dynamic Payload Parsing",
+        "startDate": "2026-06-04",
+        "endDate": "2026-06-10",
+        "progress": 0,
+        "priority": "Medium",
+        "assignee": [
+          "Erickson",
+          "Janrell"
+        ],
+        "color": "rose",
+        "dependencies": [
+          "t-1780085490440"
+        ],
+        "id": "t-1780085706757"
+      },
+      {
+        "name": "Task 2.2 - The Invisible Protocol Toll (Smart Contract)",
+        "startDate": "2026-06-08",
+        "endDate": "2026-06-11",
+        "progress": 0,
+        "priority": "Medium",
+        "assignee": [
+          "Janrell"
+        ],
+        "color": "amber",
+        "dependencies": [
+          "t-1780085539778"
+        ],
+        "id": "t-1780085796007"
+      },
+      {
+        "name": "Task 1.2 - Wallet Abstraction (front)",
+        "startDate": "2026-06-09",
+        "endDate": "2026-06-15",
+        "progress": 0,
+        "priority": "Medium",
+        "assignee": [
+          "Erickson",
+          "Carl"
+        ],
+        "color": "amber",
+        "dependencies": [
+          "t-1780085667093"
+        ],
+        "id": "t-1780085836510"
+      },
+      {
+        "name": "Task 3.1 - Multi-Party SMS Receipt (Back)",
+        "startDate": "2026-06-11",
+        "endDate": "2026-06-15",
+        "progress": 0,
+        "priority": "Medium",
+        "assignee": [
+          "Janrell",
+          "Erickson"
+        ],
+        "color": "amber",
+        "dependencies": [
+          "t-1780085539778",
+          "t-1780085706757"
+        ],
+        "id": "t-1780085921210"
+      },
+      {
+        "name": "Task 2.3 - Re-evaluate & Update 24-Hour Escrow (Smart Contract)",
+        "startDate": "2026-06-12",
+        "endDate": "2026-06-14",
+        "progress": 0,
+        "priority": "Medium",
+        "assignee": [
+          "Janrell"
+        ],
+        "color": "amber",
+        "dependencies": [
+          "t-1780085796007"
+        ],
+        "id": "t-1780085966127"
+      },
+      {
+        "name": "Task 1.4 - Long Distance SMS Routing (front)",
+        "startDate": "2026-06-16",
+        "endDate": "2026-06-19",
+        "progress": 0,
+        "priority": "Medium",
+        "assignee": [
+          "Erickson",
+          "Carl"
+        ],
+        "color": "purple",
+        "dependencies": [
+          "t-1780085490440",
+          "t-1780085667093"
+        ],
+        "id": "t-1780086015355"
+      },
+      {
+        "name": "Task 3.3 - Product Deployment (back)",
+        "startDate": "2026-06-16",
+        "endDate": "2026-06-20",
+        "progress": 0,
+        "priority": "Medium",
+        "assignee": [
+          "Janrell",
+          "Erickson"
+        ],
+        "color": "purple",
+        "dependencies": [
+          "t-1780085706757",
+          "t-1780085921210"
+        ],
+        "id": "t-1780086085173"
+      },
+      {
+        "name": "Task 1.5 - Optimistic UI & Offline State (Front)",
+        "startDate": "2026-06-19",
+        "endDate": "2026-06-21",
+        "progress": 0,
+        "priority": "Medium",
+        "assignee": [
+          "Carl",
+          "Erickson"
+        ],
+        "color": "purple",
+        "dependencies": [
+          "t-1780085667093",
+          "t-1780085836510"
+        ],
+        "id": "t-1780086152386"
+      },
+      {
+        "name": "QA / Edge Case Testing / Pitch Prep",
+        "startDate": "2026-06-22",
+        "endDate": "2026-06-28",
+        "progress": 0,
+        "priority": "Medium",
+        "assignee": [
+          "Cedric",
+          "Janrell",
+          "Erickson",
+          "Carl",
+          "Mark"
+        ],
+        "color": "emerald",
+        "dependencies": [],
+        "id": "t-1780086221749"
+      }
+    ],
+    "personnel": [
+      "Cedric",
+      "Janrell",
+      "Erickson",
+      "Carl",
+      "Mark"
+    ],
+    "tag": "Universal Web3 Liquidity, Powered by Cellular.",
+    "logs": [
+      {
+        "id": "log-1780134767573-ch99czcx5",
+        "timestamp": "2026-05-30T09:52:47.573Z",
+        "user": "Cedric",
+        "actionType": "task_update",
+        "details": "updated progress of task \"Tasks 1.3 - Fix the SMS Dispatch Bug\" to 0%"
+      },
+      {
+        "id": "log-1780134734875-1v5f5ek7b",
+        "timestamp": "2026-05-30T09:52:14.875Z",
+        "user": "Erickson",
+        "actionType": "task_update",
+        "details": "updated progress of task \"Tasks 1.3 - Fix the SMS Dispatch Bug\" to 5%"
+      }
+    ]
+  }
+]
