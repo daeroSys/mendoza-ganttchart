@@ -10,7 +10,8 @@ import {
   CheckCircle2, 
   Hourglass, 
   HelpCircle,
-  AlertCircle
+  AlertCircle,
+  Lock
 } from 'lucide-react';
 import { Task, ZoomLevel, FilterOptions, Project, ProjectDiagram } from './types';
 import { DEFAULT_TASKS } from './data/defaultTasks';
@@ -59,16 +60,39 @@ export default function App() {
   const [currentView, setCurrentView] = useState<'home' | 'gantt'>('home');
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [restrictedMode, setRestrictedMode] = useState<boolean>(false);
-  const [isOwner] = useState<boolean>(() => {
-    // Persist owner status via localStorage if they accessed the main URL
-    const hasOwnerFlag = localStorage.getItem('gantt_owner') === 'true';
-    const isMainUrl = !window.location.hash.startsWith('#/project/');
-    if (isMainUrl) {
-      localStorage.setItem('gantt_owner', 'true');
-      return true;
-    }
-    return hasOwnerFlag;
+  const [isOwner, setIsOwner] = useState<boolean>(() => {
+    return localStorage.getItem('gantt_owner') === 'true';
   });
+
+  // Passphrase gate for bare URL access
+  const [showPassphraseModal, setShowPassphraseModal] = useState(false);
+  const [passphraseInput, setPassphraseInput] = useState('');
+  const [passphraseError, setPassphraseError] = useState('');
+  const OWNER_PASSPHRASE = 'daeroSys';
+
+  // On mount, check if bare URL requires passphrase challenge
+  useEffect(() => {
+    const hash = window.location.hash;
+    const isSharedLink = hash.startsWith('#/project/');
+    if (!isSharedLink && !localStorage.getItem('gantt_owner')) {
+      // Bare URL visitor with no stored owner flag → show passphrase modal
+      setShowPassphraseModal(true);
+    }
+  }, []);
+
+  const handlePassphraseSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passphraseInput === OWNER_PASSPHRASE) {
+      localStorage.setItem('gantt_owner', 'true');
+      setIsOwner(true);
+      setShowPassphraseModal(false);
+      setPassphraseInput('');
+      setPassphraseError('');
+    } else {
+      setPassphraseError('Incorrect passphrase. Access denied.');
+      setPassphraseInput('');
+    }
+  };
 
   // Projects
   const [projects, setProjects] = useState<Project[]>([]);
@@ -671,15 +695,63 @@ export default function App() {
   // Homepage view
   if (currentView === 'home') {
     return (
-      <HomePage
-        projects={projects}
-        onSelectProject={handleSelectProject}
-        onCreateProject={handleCreateProject}
-        onDeleteProject={handleDeleteProject}
-        onUpdateProject={handleUpdateProject}
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-      />
+      <>
+        {/* Passphrase Modal — blocks access until authenticated */}
+        {showPassphraseModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" id="passphrase-gate">
+            <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+              <div className="p-6 flex flex-col items-center gap-4">
+                <div className="p-3.5 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-950/50">
+                  <Lock className="w-7 h-7" />
+                </div>
+                <div className="text-center">
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50 font-sans">
+                    Owner Access
+                  </h2>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                    Enter the passphrase to continue.
+                  </p>
+                </div>
+                <form onSubmit={handlePassphraseSubmit} className="w-full flex flex-col gap-3 mt-1">
+                  <input
+                    type="password"
+                    value={passphraseInput}
+                    onChange={e => { setPassphraseInput(e.target.value); setPassphraseError(''); }}
+                    placeholder="Passphrase"
+                    autoFocus
+                    required
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800/80 rounded-xl focus:outline-hidden focus:border-indigo-500 text-slate-800 dark:text-slate-100 font-sans transition-all text-sm focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-950"
+                    id="input-passphrase"
+                  />
+                  {passphraseError && (
+                    <p className="text-xs text-rose-600 dark:text-rose-400 font-medium flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      {passphraseError}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    className="w-full px-5 py-3 text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 rounded-xl cursor-pointer shadow-md shadow-indigo-100 dark:shadow-none transition-all active:scale-98"
+                    id="btn-passphrase-submit"
+                  >
+                    Unlock
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <HomePage
+          projects={projects}
+          onSelectProject={handleSelectProject}
+          onCreateProject={handleCreateProject}
+          onDeleteProject={handleDeleteProject}
+          onUpdateProject={handleUpdateProject}
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+        />
+      </>
     );
   }
 
