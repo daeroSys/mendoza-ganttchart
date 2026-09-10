@@ -19,6 +19,7 @@ import {
   Moon,
   X,
   AlertTriangle,
+  LogOut,
 } from 'lucide-react';
 import { Project } from '../types';
 
@@ -30,6 +31,8 @@ interface HomePageProps {
   onUpdateProject: (id: string, name: string, tag?: string) => void;
   darkMode: boolean;
   setDarkMode: (dark: boolean) => void;
+  isOwner: boolean;
+  onLogout: () => void;
 }
 
 // Gradient combos for project cards
@@ -52,6 +55,8 @@ export default function HomePage({
   onUpdateProject,
   darkMode,
   setDarkMode,
+  isOwner,
+  onLogout,
 }: HomePageProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
@@ -159,15 +164,26 @@ export default function HomePage({
             >
               {darkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
             </button>
-            {/* Create New */}
+            {/* Log Out */}
             <button
-              onClick={() => { setShowCreateModal(true); setNewProjectName(''); setCreateError(''); }}
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-950/40 cursor-pointer transition-all active:scale-98"
-              id="btn-create-project"
+              onClick={onLogout}
+              className="p-2.5 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 shadow-xs flex items-center justify-center cursor-pointer transition-colors"
+              title="Log Out"
+              id="btn-logout-home"
             >
-              <Plus className="w-4 h-4" />
-              <span>New Project</span>
+              <LogOut className="w-5 h-5" />
             </button>
+            {/* Create New - Owner Only */}
+            {isOwner && (
+              <button
+                onClick={() => { setShowCreateModal(true); setNewProjectName(''); setCreateError(''); }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-950/40 cursor-pointer transition-all active:scale-98"
+                id="btn-create-project"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New Project</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -189,16 +205,18 @@ export default function HomePage({
               No Projects Yet
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md text-center mb-8">
-              Create your first Gantt chart project to start planning and tracking your milestones.
+              {isOwner ? "Create your first Gantt chart project to start planning and tracking your milestones." : "The owner hasn't created any projects yet."}
             </p>
-            <button
-              onClick={() => { setShowCreateModal(true); setNewProjectName(''); setCreateError(''); }}
-              className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-950/40 cursor-pointer transition-all active:scale-98"
-              id="btn-create-first-project"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Create Your First Project</span>
-            </button>
+            {isOwner && (
+              <button
+                onClick={() => { setShowCreateModal(true); setNewProjectName(''); setCreateError(''); }}
+                className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-950/40 cursor-pointer transition-all active:scale-98"
+                id="btn-create-first-project"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Create Your First Project</span>
+              </button>
+            )}
           </motion.div>
         ) : (
           <>
@@ -274,7 +292,7 @@ export default function HomePage({
                             Created {new Date(project.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </p>
                         </div>
-                        {!isConfirming && (
+                        {isOwner && !isConfirming && (
                           <button
                             onClick={(e) => handleEditClick(e, project)}
                             className="p-1.5 rounded-lg transition-all shrink-0 ml-2 opacity-0 group-hover:opacity-100 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 cursor-pointer"
@@ -284,18 +302,20 @@ export default function HomePage({
                             <Edit className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        <button
-                          onClick={(e) => handleDeleteClick(e, project.id)}
-                          className={`p-1.5 rounded-lg transition-all shrink-0 ml-2 ${
-                            isConfirming
-                              ? 'bg-rose-600 text-white hover:bg-rose-700'
-                              : 'opacity-0 group-hover:opacity-100 text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
-                          } cursor-pointer`}
-                          title={isConfirming ? 'Confirm delete' : 'Delete project'}
-                          id={`btn-delete-project-${project.id}`}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {isOwner && (
+                          <button
+                            onClick={(e) => handleDeleteClick(e, project.id)}
+                            className={`p-1.5 rounded-lg transition-all shrink-0 ml-2 ${
+                              isConfirming
+                                ? 'bg-rose-600 text-white hover:bg-rose-700'
+                                : 'opacity-0 group-hover:opacity-100 text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+                            } cursor-pointer`}
+                            title={isConfirming ? 'Confirm delete' : 'Delete project'}
+                            id={`btn-delete-project-${project.id}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
 
                       {isConfirming && (

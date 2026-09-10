@@ -5,16 +5,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Calendar, 
   Layers, 
   CheckCircle2, 
-  Hourglass, 
-  HelpCircle,
-  AlertCircle,
-  Lock
+  Hourglass
 } from 'lucide-react';
 import { Task, ZoomLevel, FilterOptions, Project, ProjectDiagram } from './types';
-import { DEFAULT_TASKS } from './data/defaultTasks';
 import { calculateTimelineBounds, getDaysDiff, getPxPerDay, getTodayStr } from './utils/dateUtils';
 import GanttChartHeader from './components/GanttChartHeader';
 import GanttTimeline from './components/GanttTimeline';
@@ -26,73 +21,29 @@ import UserIdentityModal from './components/UserIdentityModal';
 import ActivityLogPanel from './components/ActivityLogPanel';
 import DiagramsHub from './components/DiagramsHub';
 import { exportElementAsImage } from './utils/exportUtils';
+import { supabase } from './utils/supabaseClient';
+import Auth from './components/Auth';
+import { fetchAllProjects, fetchProjectDetails, createProject, deleteProject, updateProjectDetails, mapTaskToDb } from './utils/supabaseData';
 
 const STORAGE_ZOOM_KEY = 'gantt_planner_zoom';
 const STORAGE_THEME_KEY = 'gantt_planner_theme';
 
-const getDefaultDiagrams = (): ProjectDiagram[] => [
-  {
-    id: 'diag-flowchart',
-    title: 'Flowchart',
-    imageUrl: '',
-    description: 'System-level architecture showing process flow and data routing logic between cellular clients and core nodes.'
-  },
-  {
-    id: 'diag-dfd',
-    title: 'DFD',
-    imageUrl: '',
-    description: 'Data Flow Diagram highlighting data exchange checkpoints from user interfaces, SMS relay gateways, and smart contracts.'
-  },
-  {
-    id: 'diag-erd',
-    title: 'ERD',
-    imageUrl: '',
-    description: 'Entity Relationship Diagram describing metadata tables, task fields, activity trace logs, and database linkages.'
-  }
-];
-
-const isDev = (import.meta as any).env.DEV;
-const API_BASE = isDev ? `http://${window.location.hostname}:3001` : window.location.origin;
-const WS_BASE = isDev ? `ws://${window.location.hostname}:3001` : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
-
 export default function App() {
+  const [session, setSession] = useState<any>(null);
+  const isGlobalOwner = session?.user?.email === 'cedricpaulmendoza11@gmail.com';
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   // Router state
   const [currentView, setCurrentView] = useState<'home' | 'gantt'>('home');
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [restrictedMode, setRestrictedMode] = useState<boolean>(false);
-  const [isOwner, setIsOwner] = useState<boolean>(() => {
-    return localStorage.getItem('gantt_owner') === 'true';
-  });
-
-  // Passphrase gate for bare URL access
-  const [showPassphraseModal, setShowPassphraseModal] = useState(false);
-  const [passphraseInput, setPassphraseInput] = useState('');
-  const [passphraseError, setPassphraseError] = useState('');
-  const OWNER_PASSPHRASE = 'daeroSys';
-
-  // On mount, check if bare URL requires passphrase challenge
-  useEffect(() => {
-    const hash = window.location.hash;
-    const isSharedLink = hash.startsWith('#/project/');
-    if (!isSharedLink && !localStorage.getItem('gantt_owner')) {
-      // Bare URL visitor with no stored owner flag → show passphrase modal
-      setShowPassphraseModal(true);
-    }
-  }, []);
-
-  const handlePassphraseSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passphraseInput === OWNER_PASSPHRASE) {
-      localStorage.setItem('gantt_owner', 'true');
-      setIsOwner(true);
-      setShowPassphraseModal(false);
-      setPassphraseInput('');
-      setPassphraseError('');
-    } else {
-      setPassphraseError('Incorrect passphrase. Access denied.');
-      setPassphraseInput('');
-    }
-  };
 
   // Projects
   const [projects, setProjects] = useState<Project[]>([]);
@@ -106,7 +57,7 @@ export default function App() {
         return storedTheme === 'dark';
       }
     } catch { /* ignore */ }
-    return true; // Default to dark mode if no setting is saved
+    return true; // Default to dark mode
   });
   const [filters, setFilters] = useState<FilterOptions>({
     search: '',
@@ -121,32 +72,27 @@ export default function App() {
   // Identity and Activity states
   const [currentUser, setCurrentUser] = useState<string>(() => {
     let stored = localStorage.getItem('gantt_username');
-    if (stored === 'Owner') {
-      stored = null; // migrate old defaults
-    }
-    if (stored) return stored;
-    if (isOwner) {
-      localStorage.setItem('gantt_username', 'Cedric');
-      return 'Cedric';
-    }
-    return '';
+    if (stored === 'Owner') stored = null;
+    return stored || '';
   });
   const [isIdentityOpen, setIsIdentityOpen] = useState<boolean>(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
 
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
 
-  // Trigger identity prompt for teammates on load
+  // Trigger identity prompt
   useEffect(() => {
-    if (!currentUser && !isOwner) {
-      setIsIdentityOpen(true);
+    if (!currentUser && session) {
+      // Prioritize full_name from signup, fallback to email prefix
+      const defaultName = session.user?.user_metadata?.full_name || session.user?.email?.split('@')[0] || 'User';
+      setCurrentUser(defaultName);
+      localStorage.setItem('gantt_username', defaultName);
     }
-  }, [currentUser, isOwner]);
+  }, [currentUser, session]);
 
   // 1. Initial State & Routing Load
   useEffect(() => {
-    // Load zoom setting
+    if (!session) return;
     const storedZoom = localStorage.getItem(STORAGE_ZOOM_KEY);
     if (storedZoom) {
       setZoom(storedZoom as ZoomLevel);
@@ -154,161 +100,73 @@ export default function App() {
 
     const handleHashChange = async () => {
       const hash = window.location.hash;
-      if (hash.startsWith('#/project/')) {
+      
+      if (hash.startsWith('#/invite/')) {
+        const token = hash.replace('#/invite/', '');
+        const { data, error } = await supabase.from('projects').select('id, collaborators').eq('share_token', token).single();
+        if (data) {
+          const updatedCollaborators = Array.from(new Set([...(data.collaborators || []), session.user.id]));
+          await supabase.from('projects').update({ collaborators: updatedCollaborators }).eq('id', data.id);
+          window.location.hash = `#/project/${data.id}`;
+        } else {
+          alert('Invalid or expired invitation link.');
+          window.location.hash = '';
+        }
+      } else if (hash.startsWith('#/project/')) {
         const projectId = hash.replace('#/project/', '');
-        setRestrictedMode(true);
         setActiveProjectId(projectId);
         setCurrentView('gantt');
 
-        // Fetch project from Server
-        try {
-          const res = await fetch(`${API_BASE}/api/projects/${projectId}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (!data.diagrams || data.diagrams.length === 0) {
-              data.diagrams = getDefaultDiagrams();
-            }
-            setProjects(prev => {
-              const exists = prev.some(p => p.id === projectId);
-              if (exists) {
-                return prev.map(p => p.id === projectId ? data : p);
-              }
-              return [...prev, data];
-            });
-          } else {
-            console.error('Project not found on server');
-            // If project doesn't exist on server, we try creating a default project in dashboard mode
-            window.location.hash = '';
-          }
-        } catch (e) {
-          console.error('Error fetching project:', e);
+        const data = await fetchProjectDetails(projectId);
+        if (data) {
+          const isCollaborator = data.collaborators?.includes(session.user.id);
+          setRestrictedMode(!isGlobalOwner && !isCollaborator);
+
+          setProjects(prev => {
+            const exists = prev.some(p => p.id === projectId);
+            if (exists) return prev.map(p => p.id === projectId ? data : p);
+            return [...prev, data];
+          });
+        } else {
+          console.error('Project not found');
+          window.location.hash = '';
         }
       } else {
         setRestrictedMode(false);
         setCurrentView('home');
         setActiveProjectId(null);
 
-        // Fetch all projects for dashboard
-        try {
-          const res = await fetch(`${API_BASE}/api/projects`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.length === 0) {
-              // Migrate existing local projects to the server
-              const storedProjects = localStorage.getItem('gantt_projects');
-              if (storedProjects) {
-                const parsed = JSON.parse(storedProjects);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                  for (const proj of parsed) {
-                    await fetch(`${API_BASE}/api/projects`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(proj),
-                    });
-                  }
-                  // Reload migrated projects from server
-                  const reloadRes = await fetch(`${API_BASE}/api/projects`);
-                  if (reloadRes.ok) {
-                    setProjects(await reloadRes.json());
-                    return;
-                  }
-                }
-              }
-            }
-            setProjects(data);
-          }
-        } catch (e) {
-          console.error('Error fetching all projects:', e);
-        }
+        const data = await fetchAllProjects();
+        setProjects(data);
       }
     };
 
     handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  }, [session]);
 
-  // 2. Realtime WebSocket Collaboration Sync
+  // 2. Supabase Realtime Sync
   useEffect(() => {
-    if (!activeProjectId) {
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      return;
-    }
+    if (!activeProjectId) return;
 
-    const connectWebSocket = () => {
-      const socket = new WebSocket(`${WS_BASE}/ws`);
-      wsRef.current = socket;
-
-      socket.onopen = () => {
-        socket.send(JSON.stringify({ type: 'join', projectId: activeProjectId }));
-      };
-
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'sync' && data.project && data.project.id === activeProjectId) {
-            setProjects(prev =>
-              prev.map(p => {
-                if (p.id === activeProjectId) {
-                  // Only update state if there's actually a difference to prevent cursors/input resetting
-                  const hasTasksChanged = JSON.stringify(p.tasks) !== JSON.stringify(data.project.tasks);
-                  const hasPersonnelChanged = JSON.stringify(p.personnel) !== JSON.stringify(data.project.personnel);
-                  const hasNameChanged = p.name !== data.project.name;
-                  const hasTagChanged = p.tag !== data.project.tag;
-                  const hasDiagramsChanged = JSON.stringify(p.diagrams) !== JSON.stringify(data.project.diagrams);
-
-                  if (hasTasksChanged || hasPersonnelChanged || hasNameChanged || hasTagChanged || hasDiagramsChanged) {
-                    return {
-                      ...p,
-                      name: data.project.name,
-                      tag: data.project.tag,
-                      tasks: data.project.tasks,
-                      personnel: data.project.personnel,
-                      diagrams: data.project.diagrams
-                    };
-                  }
-                }
-                return p;
-              })
-            );
-          }
-        } catch (err) {
-          console.error('WebSocket sync parsing error:', err);
-        }
-      };
-
-      socket.onclose = () => {
-        // Automatically reconnect after 3 seconds if disconnected
-        setTimeout(() => {
-          if (activeProjectId && (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED)) {
-            connectWebSocket();
-          }
-        }, 3000);
-      };
-    };
-
-    connectWebSocket();
+    const channel = supabase.channel(`room_${activeProjectId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', filter: `project_id=eq.${activeProjectId}` }, () => {
+        fetchProjectDetails(activeProjectId).then(data => {
+          if (data) setProjects(prev => prev.map(p => p.id === activeProjectId ? data : p));
+        });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects', filter: `id=eq.${activeProjectId}` }, () => {
+        fetchProjectDetails(activeProjectId).then(data => {
+          if (data) setProjects(prev => prev.map(p => p.id === activeProjectId ? data : p));
+        });
+      })
+      .subscribe();
 
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      supabase.removeChannel(channel);
     };
   }, [activeProjectId]);
-
-  // Helper function to broadcast updates to the WebSocket server
-  const broadcastUpdate = (updatedProject: Project) => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'update',
-        projectId: updatedProject.id,
-        project: updatedProject
-      }));
-    }
-  };
 
   // 3. Synchronize theme selection class
   useEffect(() => {
@@ -322,111 +180,56 @@ export default function App() {
   }, [darkMode]);
 
   // 4. Dynamic document title
+  const activeProject = projects.find(p => p.id === activeProjectId) || null;
   useEffect(() => {
     if (currentView === 'home') {
       document.title = "Daero's Gantt Chart Repo";
     } else if (activeProject) {
       document.title = `${activeProject.name} — Daero's Gantt Chart Repo`;
     }
-  }, [currentView, activeProjectId, projects]);
+  }, [currentView, activeProject]);
 
-  // Get active project
-  const activeProject = projects.find(p => p.id === activeProjectId) || null;
   const tasks = activeProject?.tasks || [];
   const personnel = activeProject?.personnel || [];
 
-  // Update tasks for active project
-  const handleSaveTasksState = async (
-    newTasks: Task[],
-    details?: string,
-    actionType?: 'task_create' | 'task_update' | 'task_delete' | 'task_reschedule' | 'personnel_update' | 'project_update'
-  ) => {
-    if (!activeProjectId || !activeProject) return;
-
-    let updatedLogs = activeProject.logs || [];
-    if (details && actionType) {
-      const newLogEntry = {
-        id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-        timestamp: new Date().toISOString(),
-        user: currentUser || 'Anonymous',
-        actionType,
-        details,
-      };
-      updatedLogs = [newLogEntry, ...updatedLogs].slice(0, 100);
-    }
-
-    const updatedProject = { ...activeProject, tasks: newTasks, logs: updatedLogs };
-    
-    // Update local state immediately for responsive UI
-    setProjects(prev => prev.map(p => p.id === activeProjectId ? updatedProject : p));
-    broadcastUpdate(updatedProject);
-
-    try {
-      await fetch(`${API_BASE}/api/projects/${activeProjectId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedProject),
-      });
-    } catch (err) {
-      console.error('Error saving tasks to server:', err);
-    }
+  // Log action helper
+  const logAction = async (actionType: string, details: string) => {
+    if (!activeProjectId) return;
+    const logEntry = {
+      id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+      project_id: activeProjectId,
+      user_id: session?.user?.id || 'unknown',
+      action_type: actionType,
+      details,
+      timestamp: new Date().toISOString()
+    };
+    await supabase.from('activity_logs').insert(logEntry);
   };
 
   // Update personnel for active project
   const handleUpdatePersonnel = async (newPersonnel: string[]) => {
     if (!activeProjectId || !activeProject) return;
-    
-    const newLogEntry = {
-      id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-      timestamp: new Date().toISOString(),
-      user: currentUser || 'Anonymous',
-      actionType: 'personnel_update' as const,
-      details: 'updated project personnel list',
-    };
-    const updatedLogs = [newLogEntry, ...(activeProject.logs || [])].slice(0, 100);
-    const updatedProject = { ...activeProject, personnel: newPersonnel, logs: updatedLogs };
-
-    // Update local state immediately
+    const updatedProject = { ...activeProject, personnel: newPersonnel };
     setProjects(prev => prev.map(p => p.id === activeProjectId ? updatedProject : p));
-    broadcastUpdate(updatedProject);
-
-    try {
-      await fetch(`${API_BASE}/api/projects/${activeProjectId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedProject),
-      });
-    } catch (err) {
-      console.error('Error saving personnel to server:', err);
-    }
+    await supabase.from('projects').update({ personnel: newPersonnel }).eq('id', activeProjectId);
+    logAction('personnel_update', 'updated project personnel list');
   };
 
   const handleUpdateDiagrams = async (newDiagrams: ProjectDiagram[], details: string) => {
     if (!activeProjectId || !activeProject) return;
-
-    const newLogEntry = {
-      id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-      timestamp: new Date().toISOString(),
-      user: currentUser || 'Anonymous',
-      actionType: 'project_update' as const,
-      details,
-    };
-    const updatedLogs = [newLogEntry, ...(activeProject.logs || [])].slice(0, 100);
-    const updatedProject = { ...activeProject, diagrams: newDiagrams, logs: updatedLogs };
-
-    // Update local state immediately
+    const updatedProject = { ...activeProject, diagrams: newDiagrams };
     setProjects(prev => prev.map(p => p.id === activeProjectId ? updatedProject : p));
-    broadcastUpdate(updatedProject);
-
-    try {
-      await fetch(`${API_BASE}/api/projects/${activeProjectId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedProject),
+    
+    for (const d of newDiagrams) {
+      await supabase.from('project_diagrams').upsert({
+        id: d.id,
+        project_id: activeProjectId,
+        title: d.title,
+        image_url: d.imageUrl,
+        description: d.description
       });
-    } catch (err) {
-      console.error('Error saving diagrams to server:', err);
     }
+    logAction('project_update', details);
   };
 
   const handleZoomChange = (newZoom: ZoomLevel) => {
@@ -444,71 +247,31 @@ export default function App() {
   };
 
   const handleCreateProject = async (name: string, tag?: string) => {
-    const newProject: Project = {
-      id: `proj-${Date.now()}`,
-      name,
-      createdAt: new Date().toISOString(),
-      tasks: [],
-      personnel: [],
-      tag: tag || 'Visualize, orchestrate, and trace project milestones and tasks interactively.',
-      diagrams: getDefaultDiagrams(),
-    };
-
-    setProjects(prev => [...prev, newProject]);
-
-    try {
-      await fetch(`${API_BASE}/api/projects`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newProject),
-      });
-    } catch (err) {
-      console.error('Error saving new project to server:', err);
+    if (!session?.user?.id) return;
+    const newProject = await createProject(name, tag || 'Visualize, orchestrate, and trace project milestones.', session.user.id);
+    if (newProject) {
+      setProjects(prev => [...prev, newProject]);
     }
   };
 
   const handleDeleteProject = async (id: string) => {
     setProjects(prev => prev.filter(p => p.id !== id));
-    try {
-      await fetch(`${API_BASE}/api/projects/${id}`, {
-        method: 'DELETE',
-      });
-    } catch (err) {
-      console.error('Error deleting project from server:', err);
-    }
+    await deleteProject(id);
   };
 
   const handleUpdateProject = async (id: string, name: string, tag?: string) => {
     const targetProject = projects.find(p => p.id === id);
     if (!targetProject) return;
-
-    const newLogEntry = {
-      id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-      timestamp: new Date().toISOString(),
-      user: currentUser || 'Anonymous',
-      actionType: 'project_update' as const,
-      details: `modified project details (Name: "${name}")`,
-    };
-    const updatedLogs = [newLogEntry, ...(targetProject.logs || [])].slice(0, 100);
-    const updatedProject = { ...targetProject, name, tag: tag || '', logs: updatedLogs };
-    
+    const updatedProject = { ...targetProject, name, tag: tag || '' };
     setProjects(prev => prev.map(p => p.id === id ? updatedProject : p));
-    broadcastUpdate(updatedProject);
-
-    try {
-      await fetch(`${API_BASE}/api/projects/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedProject),
-      });
-    } catch (err) {
-      console.error('Error updating project details on server:', err);
+    await updateProjectDetails(id, name, tag || '');
+    if (activeProjectId === id) {
+      logAction('project_update', `modified project details (Name: "${name}")`);
     }
   };
 
   // Timeline calculations (only used in gantt view)
   const bounds = calculateTimelineBounds(tasks, zoom);
-
 
   const handleScrollToToday = () => {
     if (timelineScrollRef.current) {
@@ -568,44 +331,71 @@ export default function App() {
     setIsModalOpen(true);
   };
 
-  const handleDeleteTask = (id: string) => {
+  const handleDeleteTask = async (id: string) => {
     const taskToDelete = tasks.find(t => t.id === id);
-    const updated = tasks
-      .filter(t => t.id !== id)
-      .map(task => ({
-        ...task,
-        dependencies: task.dependencies ? task.dependencies.filter(depId => depId !== id) : [],
-      }));
+    if (!taskToDelete) return;
+    
+    // Optimistic UI
+    const updatedTasks = tasks.filter(t => t.id !== id).map(task => ({
+      ...task,
+      dependencies: task.dependencies ? task.dependencies.filter(depId => depId !== id) : [],
+    }));
+    if (activeProject) {
+      setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, tasks: updatedTasks } : p));
+    }
 
-    const logDetails = taskToDelete ? `deleted task "${taskToDelete.name}"` : 'deleted a task';
-    handleSaveTasksState(updated, logDetails, 'task_delete');
+    await supabase.from('tasks').delete().eq('id', id);
+    logAction('task_delete', `deleted task "${taskToDelete.name}"`);
   };
 
-  const handleSaveModalResult = (taskData: Omit<Task, 'id'> & { id?: string }) => {
-    if (taskData.id) {
-      const oldTask = tasks.find(t => t.id === taskData.id);
-      const updated = tasks.map(t => (t.id === taskData.id ? { ...t, ...taskData } : t));
+  const handleSaveModalResult = async (taskData: Omit<Task, 'id'> & { id?: string }) => {
+    let isUpdate = !!taskData.id;
+    let finalTask: Task;
+    
+    if (isUpdate) {
+      finalTask = { ...taskData } as Task;
+      const oldTask = tasks.find(t => t.id === finalTask.id);
       
-      let logDetails = `modified details of task "${taskData.name}"`;
-      if (oldTask && oldTask.progress !== taskData.progress) {
-        logDetails = `updated progress of task "${taskData.name}" to ${taskData.progress}%`;
+      // Optimistic UI
+      const updatedTasks = tasks.map(t => (t.id === finalTask.id ? finalTask : t));
+      if (activeProject) {
+        setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, tasks: updatedTasks } : p));
       }
-      handleSaveTasksState(updated as Task[], logDetails, 'task_update');
+
+      await supabase.from('tasks').update(mapTaskToDb(finalTask, activeProjectId!)).eq('id', finalTask.id);
+      
+      let logDetails = `modified details of task "${finalTask.name}"`;
+      if (oldTask && oldTask.progress !== finalTask.progress) {
+        logDetails = `updated progress of task "${finalTask.name}" to ${finalTask.progress}%`;
+      }
+      logAction('task_update', logDetails);
     } else {
-      const newTaskEntry: Task = {
-        ...taskData,
-        id: `t-${Date.now()}`,
-      };
-      handleSaveTasksState([...tasks, newTaskEntry], `created new task "${taskData.name}"`, 'task_create');
+      finalTask = { ...taskData, id: `t-${Date.now()}` } as Task;
+      
+      // Optimistic UI
+      if (activeProject) {
+        setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, tasks: [...p.tasks, finalTask] } : p));
+      }
+
+      await supabase.from('tasks').insert(mapTaskToDb(finalTask, activeProjectId!));
+      logAction('task_create', `created new task "${finalTask.name}"`);
     }
   };
 
-  const handleUpdateTaskDates = (id: string, start: string, end: string) => {
+  const handleUpdateTaskDates = async (id: string, start: string, end: string) => {
     const task = tasks.find(t => t.id === id);
-    const updated = tasks.map(t => (t.id === id ? { ...t, startDate: start, endDate: end } : t));
+    if (!task) return;
     
-    const logDetails = task ? `rescheduled task "${task.name}" dates to ${start} - ${end}` : 'rescheduled a task';
-    handleSaveTasksState(updated, logDetails, 'task_reschedule');
+    const updatedTask = { ...task, startDate: start, endDate: end };
+    
+    // Optimistic UI
+    const updatedTasks = tasks.map(t => (t.id === id ? updatedTask : t));
+    if (activeProject) {
+      setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, tasks: updatedTasks } : p));
+    }
+
+    await supabase.from('tasks').update({ start_date: start, end_date: end }).eq('id', id);
+    logAction('task_reschedule', `rescheduled task "${task.name}" dates to ${start} - ${end}`);
   };
 
   // Export/Import
@@ -622,17 +412,25 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const handleImportJSON = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportJSON = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !activeProjectId) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const text = e.target?.result as string;
         const parsed = JSON.parse(text);
         if (Array.isArray(parsed) && parsed.every(t => t.id && t.name && t.startDate && t.endDate)) {
-          handleSaveTasksState(parsed as Task[]);
+          // Add all tasks to DB
+          const dbTasks = parsed.map(t => mapTaskToDb(t, activeProjectId));
+          await supabase.from('tasks').insert(dbTasks);
+          
+          // Refetch to sync UI properly
+          const data = await fetchProjectDetails(activeProjectId);
+          if (data) {
+            setProjects(prev => prev.map(p => p.id === activeProjectId ? data : p));
+          }
           alert('Project loaded successfully!');
         } else {
           alert('Error: Loaded JSON formatting is incorrect or incomplete.');
@@ -678,12 +476,22 @@ export default function App() {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    window.location.hash = '';
+  };
+
   const handleShareProject = () => {
-    if (!activeProjectId) return;
-    const shareUrl = `${window.location.origin}${window.location.pathname}#/project/${activeProjectId}`;
+    if (!activeProjectId || !activeProject) return;
+    
+    // Fallback to project ID if shareToken isn't set up on the DB yet
+    const token = activeProject.shareToken || activeProject.id;
+    const shareUrl = `${window.location.origin}${window.location.pathname}#/invite/${token}`;
+    
     navigator.clipboard.writeText(shareUrl)
       .then(() => {
-        alert('Collaboration link copied to clipboard! Send it to your teammates.');
+        alert('Collaboration invite link copied to clipboard! Anyone with this link can edit this project.');
       })
       .catch(err => {
         console.error('Failed to copy link:', err);
@@ -692,66 +500,24 @@ export default function App() {
 
   // ── RENDER ────────────────────────────────────────────────
 
+  if (!session) {
+    return <Auth />;
+  }
+
   // Homepage view
   if (currentView === 'home') {
     return (
-      <>
-        {/* Passphrase Modal — blocks access until authenticated */}
-        {showPassphraseModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" id="passphrase-gate">
-            <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-              <div className="p-6 flex flex-col items-center gap-4">
-                <div className="p-3.5 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-950/50">
-                  <Lock className="w-7 h-7" />
-                </div>
-                <div className="text-center">
-                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50 font-sans">
-                    Owner Access
-                  </h2>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                    Enter the passphrase to continue.
-                  </p>
-                </div>
-                <form onSubmit={handlePassphraseSubmit} className="w-full flex flex-col gap-3 mt-1">
-                  <input
-                    type="password"
-                    value={passphraseInput}
-                    onChange={e => { setPassphraseInput(e.target.value); setPassphraseError(''); }}
-                    placeholder="Passphrase"
-                    autoFocus
-                    required
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800/80 rounded-xl focus:outline-hidden focus:border-indigo-500 text-slate-800 dark:text-slate-100 font-sans transition-all text-sm focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-950"
-                    id="input-passphrase"
-                  />
-                  {passphraseError && (
-                    <p className="text-xs text-rose-600 dark:text-rose-400 font-medium flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      {passphraseError}
-                    </p>
-                  )}
-                  <button
-                    type="submit"
-                    className="w-full px-5 py-3 text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 rounded-xl cursor-pointer shadow-md shadow-indigo-100 dark:shadow-none transition-all active:scale-98"
-                    id="btn-passphrase-submit"
-                  >
-                    Unlock
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <HomePage
-          projects={projects}
-          onSelectProject={handleSelectProject}
-          onCreateProject={handleCreateProject}
-          onDeleteProject={handleDeleteProject}
-          onUpdateProject={handleUpdateProject}
-          darkMode={darkMode}
-          setDarkMode={setDarkMode}
-        />
-      </>
+      <HomePage
+        projects={projects}
+        onSelectProject={handleSelectProject}
+        onCreateProject={handleCreateProject}
+        onDeleteProject={handleDeleteProject}
+        onUpdateProject={handleUpdateProject}
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        isOwner={isGlobalOwner}
+        onLogout={handleLogout}
+      />
     );
   }
 
@@ -773,11 +539,12 @@ export default function App() {
         onScrollToToday={handleScrollToToday}
         title={activeProject?.name || 'Project Gantt Chart'}
         subtitle={activeProject?.tag || "Visualize, orchestrate, and trace project milestones and tasks interactively."}
-        onBack={isOwner ? handleBackToHome : undefined}
+        onBack={handleBackToHome}
         onOpenPersonnel={() => setIsPersonnelOpen(true)}
         onShare={handleShareProject}
         onOpenHistory={() => setIsHistoryOpen(true)}
-        restrictedMode={!isOwner}
+        restrictedMode={restrictedMode}
+        onLogout={handleLogout}
       />
 
       {/* Main Stats Summary Strip & Content Workspace */}
@@ -786,9 +553,8 @@ export default function App() {
         {/* KPI Stats Cards Strip */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="kpi-dashboard-grid">
           
-          {/* Card 1: Total Project scope */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl flex items-center gap-4 shadow-2xs" id="kpi-total-tasks">
-            <div className="p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-xl" id="kpi-logo-1">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl flex items-center gap-4 shadow-2xs">
+            <div className="p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-xl">
               <Layers className="w-5 h-5" />
             </div>
             <div>
@@ -797,10 +563,9 @@ export default function App() {
             </div>
           </div>
 
-          {/* Card 2: Average Deliverable completion rate */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl shadow-2xs" id="kpi-project-progress">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl shadow-2xs">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-xl" id="kpi-logo-2">
+              <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-xl">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
               <div className="flex-1">
@@ -810,15 +575,13 @@ export default function App() {
                 </div>
               </div>
             </div>
-            {/* Embedded Mini-tracker bar to show summary status visually */}
             <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
               <div className="bg-indigo-600 dark:bg-indigo-500 h-full rounded-full transition-all duration-300" style={{ width: `${averageProgress}%` }} />
             </div>
           </div>
 
-          {/* Card 3: Tasks fully resolved */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl flex items-center gap-4 shadow-2xs" id="kpi-resolved-tasks">
-            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-xl" id="kpi-logo-3">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl flex items-center gap-4 shadow-2xs">
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-xl">
               <CheckCircle2 className="w-5 h-5 text-emerald-500" />
             </div>
             <div>
@@ -827,9 +590,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* Card 4: Blocked Dependency warnings */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl flex items-center gap-4 shadow-2xs" id="kpi-blocked-tasks">
-            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-xl" id="kpi-logo-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl flex items-center gap-4 shadow-2xs">
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-xl">
               <Hourglass className="w-5 h-5 text-amber-500" />
             </div>
             <div>
@@ -842,7 +604,6 @@ export default function App() {
 
         {/* Primary Timeline Section Dashboard Canvas */}
         <section className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4.5 sm:p-6 rounded-3xl shadow-sm" id="gantt-chart-section">
-          {/* Timeline and visual board elements */}
           <GanttTimeline
             tasks={tasks}
             filteredTasks={filteredTasks}
@@ -852,7 +613,7 @@ export default function App() {
             onDeleteTask={handleDeleteTask}
             onUpdateTaskDates={handleUpdateTaskDates}
             timelineScrollRef={timelineScrollRef}
-            restrictedMode={!isOwner}
+            restrictedMode={restrictedMode}
           />
         </section>
 
@@ -860,7 +621,7 @@ export default function App() {
         <DiagramsHub
           diagrams={activeProject?.diagrams || []}
           onUpdateDiagrams={handleUpdateDiagrams}
-          restrictedMode={!isOwner}
+          restrictedMode={restrictedMode}
         />
 
       </main>
@@ -873,7 +634,7 @@ export default function App() {
         taskToEdit={taskToEdit}
         allTasks={tasks}
         personnel={personnel}
-        restrictedMode={!isOwner}
+        restrictedMode={restrictedMode}
       />
 
       {/* Personnel Management Modal */}
@@ -894,7 +655,7 @@ export default function App() {
         projectTitle={`${activeProject?.name || 'Project'} Gantt Chart`}
       />
 
-      {/* User Identity Modal */}
+      {/* User Identity Modal (Keep for custom display name logic if needed, though session handles Auth) */}
       <UserIdentityModal
         isOpen={isIdentityOpen}
         onSave={(username) => {

@@ -18,6 +18,7 @@ import {
   Image,
   Share2,
   History,
+  LogOut,
 } from 'lucide-react';
 import { ZoomLevel, FilterOptions, Priority } from '../types';
 
@@ -39,6 +40,7 @@ interface GanttChartHeaderProps {
   onShare?: () => void;
   onOpenHistory?: () => void;
   restrictedMode?: boolean;
+  onLogout?: () => void;
 }
 
 export default function GanttChartHeader({
@@ -59,6 +61,7 @@ export default function GanttChartHeader({
   onShare,
   onOpenHistory,
   restrictedMode = false,
+  onLogout,
 }: GanttChartHeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -186,6 +189,18 @@ export default function GanttChartHeader({
           >
             {darkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
           </button>
+
+          {/* Log Out Button */}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="p-2 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 shadow-xs flex items-center justify-center cursor-pointer transition-colors"
+              title="Log Out"
+              id="btn-logout-gantt"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          )}
 
           {/* New Task Trigger Button */}
           {!restrictedMode && (
