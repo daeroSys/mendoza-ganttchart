@@ -22,6 +22,7 @@ export default function Auth({ onLogin }: { onLogin?: () => void }) {
           email, 
           password,
           options: {
+            emailRedirectTo: window.location.href,
             data: {
               full_name: name
             }
