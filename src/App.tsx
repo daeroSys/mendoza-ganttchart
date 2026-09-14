@@ -125,7 +125,8 @@ export default function App() {
         const data = await fetchProjectDetails(projectId);
         if (data) {
           const isCollaborator = data.collaborators?.includes(session.user.id);
-          setRestrictedMode(!isGlobalOwner && !isCollaborator);
+          // Collaborators are restricted (can only edit progress), Owner is not restricted
+          setRestrictedMode(!isGlobalOwner);
 
           setProjects(prev => {
             const exists = prev.some(p => p.id === projectId);
