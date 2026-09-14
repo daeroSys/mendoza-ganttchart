@@ -57,6 +57,7 @@ export default function PersonnelModal({
       await sendPersonnelInviteEmail(user.email, user.full_name || user.firstName, projectName);
     } catch (err) {
       console.error("Could not send invite email", err);
+      alert("Added to project, but failed to send the invite email. Please check EmailJS configuration or browser console.");
     }
   };
 

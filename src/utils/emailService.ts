@@ -27,7 +27,7 @@ export const sendPersonnelInviteEmail = async (
       serviceId,
       templateId,
       templateParams,
-      publicKey
+      { publicKey }
     );
 
     console.log('Email sent successfully!', response.status, response.text);
@@ -67,7 +67,7 @@ export const sendTaskAssignmentEmail = async (
       serviceId,
       templateId,
       templateParams,
-      publicKey
+      { publicKey }
     );
     
     console.log('Task assignment email sent successfully!', response.status, response.text);
