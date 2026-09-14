@@ -3,9 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, UserPlus, Trash2, Users, AlertTriangle } from 'lucide-react';
+import { X, UserPlus, Trash2, Users, AlertTriangle, Loader2 } from 'lucide-react';
+import { fetchAllProfiles } from '../utils/supabaseData';
+import { sendPersonnelInviteEmail } from '../utils/emailService';
 
 interface PersonnelModalProps {
   isOpen: boolean;
@@ -13,6 +15,8 @@ interface PersonnelModalProps {
   personnel: string[];
   onUpdatePersonnel: (personnel: string[]) => void;
   taskAssignees: string[]; // currently assigned people in tasks
+  projectName: string;
+  isOwner?: boolean;
 }
 
 export default function PersonnelModal({
@@ -21,32 +25,38 @@ export default function PersonnelModal({
   personnel,
   onUpdatePersonnel,
   taskAssignees,
+  projectName,
+  isOwner = true,
 }: PersonnelModalProps) {
-  const [newName, setNewName] = useState('');
-  const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [profiles, setProfiles] = useState<{id: string, email: string, full_name: string}[]>([]);
+  const [loadingProfiles, setLoadingProfiles] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setLoadingProfiles(true);
+      fetchAllProfiles().then(data => {
+        setProfiles(data);
+        setLoadingProfiles(false);
+      });
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleAdd = () => {
-    const trimmed = newName.trim();
-    if (!trimmed) {
-      setError('Please enter a name.');
+  const handleAdd = async (user: { firstName: string, email: string, full_name: string }) => {
+    if (personnel.some(p => p.toLowerCase() === user.firstName.toLowerCase())) {
       return;
     }
-    if (personnel.some(p => p.toLowerCase() === trimmed.toLowerCase())) {
-      setError('This person already exists.');
-      return;
-    }
-    onUpdatePersonnel([...personnel, trimmed]);
-    setNewName('');
-    setError('');
-  };
+    
+    // Immediately update UI
+    onUpdatePersonnel([...personnel, user.firstName]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleAdd();
+    // Send the email in the background
+    try {
+      await sendPersonnelInviteEmail(user.email, user.full_name || user.firstName, projectName);
+    } catch (err) {
+      console.error("Could not send invite email", err);
     }
   };
 
@@ -59,6 +69,12 @@ export default function PersonnelModal({
     onUpdatePersonnel(personnel.filter(p => p !== name));
     setConfirmDelete(null);
   };
+
+  // Extract first names from registered users
+  const availableUsers = profiles.map(p => {
+    const firstName = p.full_name ? p.full_name.split(' ')[0] : p.email.split('@')[0];
+    return { ...p, firstName };
+  }).filter(p => !personnel.includes(p.firstName));
 
   return (
     <AnimatePresence>
@@ -106,46 +122,61 @@ export default function PersonnelModal({
             </button>
           </div>
 
-          {/* Add New Person */}
-          <div className="p-6 border-b border-slate-100 dark:border-slate-800/60">
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase mb-2">
-              Add New Team Member
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="e.g. Sarah Chen"
-                value={newName}
-                onChange={e => { setNewName(e.target.value); setError(''); setConfirmDelete(null); }}
-                onKeyDown={handleKeyDown}
-                className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800/80 rounded-xl focus:outline-hidden focus:border-violet-500 text-slate-800 dark:text-slate-100 font-sans transition-all text-sm"
-                id="input-new-personnel"
-              />
-              <button
-                type="button"
-                onClick={handleAdd}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-md shadow-violet-100 dark:shadow-none cursor-pointer transition-all active:scale-98"
-                id="btn-add-personnel"
-              >
-                <UserPlus className="w-4 h-4" />
-                <span>Add</span>
-              </button>
+          {/* Add New Person (From Registered Users) */}
+          {isOwner && (
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-950/30">
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase mb-3">
+                Available Registered Users
+              </label>
+            <div className="max-h-48 overflow-y-auto scrollbar-thin">
+              {loadingProfiles ? (
+                <div className="flex items-center justify-center py-4 text-slate-400">
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  <span className="text-sm">Loading users...</span>
+                </div>
+              ) : availableUsers.length === 0 ? (
+                <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4 italic">
+                  No new users available to add.
+                </p>
+              ) : (
+                <div className="space-y-2 pr-2">
+                  {availableUsers.map((user) => (
+                    <div key={user.id} className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                          {user.firstName[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{user.firstName}</p>
+                          <p className="text-[10px] text-slate-400">{user.email}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleAdd(user)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg bg-violet-100 text-violet-700 hover:bg-violet-200 dark:bg-violet-900/40 dark:text-violet-300 dark:hover:bg-violet-800/60 cursor-pointer transition-colors"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Add</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            {error && (
-              <p className="text-xs text-rose-600 dark:text-rose-400 mt-2 font-medium flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                {error}
-              </p>
-            )}
           </div>
+          )}
 
-          {/* Personnel List */}
+          {/* Personnel List (Currently Added) */}
           <div className="p-6 max-h-80 overflow-y-auto scrollbar-thin">
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase mb-3">
+              Current Project Personnel
+            </label>
             {personnel.length === 0 ? (
               <div className="text-center py-8">
                 <Users className="w-10 h-10 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
                 <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">No team members yet</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Add personnel above to populate your team roster.</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Add registered users from above.</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -169,7 +200,7 @@ export default function PersonnelModal({
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-400 to-indigo-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                          {person.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                          {person[0].toUpperCase()}
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{person}</p>
@@ -180,26 +211,28 @@ export default function PersonnelModal({
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {isConfirming && (
-                          <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold whitespace-nowrap">
-                            Has tasks! Sure?
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(person)}
-                          className={`p-1.5 rounded-lg cursor-pointer transition-colors ${
-                            isConfirming
-                              ? 'bg-rose-600 text-white hover:bg-rose-700'
-                              : 'hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400'
-                          }`}
-                          title={isConfirming ? 'Confirm delete' : 'Remove person'}
-                          id={`btn-delete-personnel-${index}`}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      {isOwner && (
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isConfirming && (
+                            <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold whitespace-nowrap">
+                              Has tasks! Sure?
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(person)}
+                            className={`p-1.5 rounded-lg cursor-pointer transition-colors ${
+                              isConfirming
+                                ? 'bg-rose-600 text-white hover:bg-rose-700'
+                                : 'hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400'
+                            }`}
+                            title={isConfirming ? 'Confirm delete' : 'Remove person'}
+                            id={`btn-delete-personnel-${index}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </motion.div>
                   );
                 })}

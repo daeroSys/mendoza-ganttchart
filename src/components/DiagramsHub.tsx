@@ -7,12 +7,14 @@ interface DiagramsHubProps {
   diagrams: ProjectDiagram[];
   onUpdateDiagrams: (updated: ProjectDiagram[], details: string) => void;
   restrictedMode: boolean;
+  isOwner?: boolean;
 }
 
 export default function DiagramsHub({
   diagrams,
   onUpdateDiagrams,
   restrictedMode,
+  isOwner = true,
 }: DiagramsHubProps) {
   const [activeTabId, setActiveTabId] = useState<string>(() => {
     return diagrams[0]?.id || '';
@@ -169,7 +171,7 @@ export default function DiagramsHub({
         </div>
 
         {/* Add diagram button (Owners only) */}
-        {!restrictedMode && (
+        {!restrictedMode && isOwner !== false && (
           <button
             onClick={handleOpenCreate}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/40 cursor-pointer transition-colors select-none"
@@ -224,7 +226,7 @@ export default function DiagramsHub({
                     </h4>
                     
                     {/* Owner controls: Edit details, Remove Image, Delete Tab */}
-                    {!restrictedMode && (
+                    {!restrictedMode && isOwner !== false && (
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => handleOpenEdit(activeDiagram)}
@@ -309,7 +311,7 @@ export default function DiagramsHub({
                     <ImageIcon className="w-12 h-12 text-slate-300 dark:text-slate-700 mb-3 animate-pulse" />
                     <h5 className="text-sm font-bold text-slate-700 dark:text-slate-350">No Image Attached</h5>
                     
-                    {!restrictedMode ? (
+                    {!restrictedMode && isOwner !== false ? (
                       // Owner upload controls
                       <div className="mt-4 w-full flex flex-col gap-3">
                         <p className="text-xs text-slate-400 dark:text-slate-500">

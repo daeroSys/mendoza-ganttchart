@@ -19,6 +19,8 @@ import {
   Share2,
   History,
   LogOut,
+  Bell,
+  Send,
 } from 'lucide-react';
 import { ZoomLevel, FilterOptions, Priority } from '../types';
 
@@ -41,6 +43,12 @@ interface GanttChartHeaderProps {
   onOpenHistory?: () => void;
   restrictedMode?: boolean;
   onLogout?: () => void;
+  isNotifyMode?: boolean;
+  onStartNotifyMode?: () => void;
+  onCancelNotifyMode?: () => void;
+  onNotifyNow?: () => void;
+  selectedTaskCount?: number;
+  isOwner?: boolean;
 }
 
 export default function GanttChartHeader({
@@ -62,6 +70,12 @@ export default function GanttChartHeader({
   onOpenHistory,
   restrictedMode = false,
   onLogout,
+  isNotifyMode = false,
+  onStartNotifyMode,
+  onCancelNotifyMode,
+  onNotifyNow,
+  selectedTaskCount = 0,
+  isOwner = true,
 }: GanttChartHeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -154,6 +168,38 @@ export default function GanttChartHeader({
             </button>
           )}
 
+          {/* Notify Team Button / Mode */}
+          {onStartNotifyMode && !restrictedMode && isOwner !== false && (
+            isNotifyMode ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onNotifyNow}
+                  disabled={selectedTaskCount === 0}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-xl text-white shadow-xs select-none transition-colors ${selectedTaskCount === 0 ? 'bg-indigo-300 dark:bg-indigo-800/50 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 cursor-pointer'}`}
+                  title="Send notification emails"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>Notify Now ({selectedTaskCount})</span>
+                </button>
+                <button
+                  onClick={onCancelNotifyMode}
+                  className="px-3.5 py-2 text-sm font-semibold rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 dark:hover:text-white cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onStartNotifyMode}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-xl border border-sky-200 dark:border-sky-800/60 hover:bg-sky-50 dark:hover:bg-sky-950/30 text-sky-700 dark:text-sky-300 bg-white dark:bg-slate-800 shadow-xs cursor-pointer select-none transition-colors"
+                title="Select tasks to notify team members"
+              >
+                <Bell className="w-4 h-4" />
+                <span>Notify Team</span>
+              </button>
+            )
+          )}
+
           {/* Share Button */}
           {onShare && (
             <button
@@ -203,7 +249,7 @@ export default function GanttChartHeader({
           )}
 
           {/* New Task Trigger Button */}
-          {!restrictedMode && (
+          {!restrictedMode && isOwner !== false && (
             <button
               onClick={onAddTask}
               className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-100 dark:shadow-none font-sans cursor-pointer transition-all active:scale-98"

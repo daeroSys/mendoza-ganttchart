@@ -23,7 +23,8 @@ import DiagramsHub from './components/DiagramsHub';
 import { exportElementAsImage } from './utils/exportUtils';
 import { supabase } from './utils/supabaseClient';
 import Auth from './components/Auth';
-import { fetchAllProjects, fetchProjectDetails, createProject, deleteProject, updateProjectDetails, mapTaskToDb } from './utils/supabaseData';
+import { fetchAllProjects, fetchProjectDetails, createProject, deleteProject, updateProjectDetails, mapTaskToDb, fetchAllProfiles } from './utils/supabaseData';
+import { sendTaskAssignmentEmail } from './utils/emailService';
 
 const STORAGE_ZOOM_KEY = 'gantt_planner_zoom';
 const STORAGE_THEME_KEY = 'gantt_planner_theme';
@@ -68,6 +69,10 @@ export default function App() {
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [isPersonnelOpen, setIsPersonnelOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+
+  // Notify Mode
+  const [isNotifyMode, setIsNotifyMode] = useState(false);
+  const [selectedTaskIdsForNotify, setSelectedTaskIdsForNotify] = useState<string[]>([]);
 
   // Identity and Activity states
   const [currentUser, setCurrentUser] = useState<string>(() => {
@@ -303,6 +308,11 @@ export default function App() {
     const matchesPriority = filters.priority === 'All' || task.priority === filters.priority;
     const matchesAssignee = filters.assignee === 'All' || task.assignee.includes(filters.assignee);
     return matchesSearch && matchesPriority && matchesAssignee;
+  }).sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) {
+      return (a.sortOrder || 0) - (b.sortOrder || 0);
+    }
+    return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
   });
 
   // Stats
@@ -380,6 +390,7 @@ export default function App() {
       await supabase.from('tasks').insert(mapTaskToDb(finalTask, activeProjectId!));
       logAction('task_create', `created new task "${finalTask.name}"`);
     }
+
   };
 
   const handleUpdateTaskDates = async (id: string, start: string, end: string) => {
@@ -396,6 +407,41 @@ export default function App() {
 
     await supabase.from('tasks').update({ start_date: start, end_date: end }).eq('id', id);
     logAction('task_reschedule', `rescheduled task "${task.name}" dates to ${start} - ${end}`);
+  };
+
+  const handleReorderTasks = async (sourceId: string, targetId: string) => {
+    if (!activeProjectId) return;
+    const sourceIndex = filteredTasks.findIndex(t => t.id === sourceId);
+    const targetIndex = filteredTasks.findIndex(t => t.id === targetId);
+    
+    if (sourceIndex === -1 || targetIndex === -1) return;
+    
+    const newOrderedTasks = [...filteredTasks];
+    const [movedTask] = newOrderedTasks.splice(sourceIndex, 1);
+    newOrderedTasks.splice(targetIndex, 0, movedTask);
+    
+    const updates = newOrderedTasks.map((t, index) => ({
+      id: t.id,
+      sort_order: index,
+    }));
+    
+    // Optimistic UI update
+    setProjects(prev => prev.map(p => {
+      if (p.id !== activeProjectId) return p;
+      return {
+        ...p,
+        tasks: p.tasks.map(t => {
+          const update = updates.find(u => u.id === t.id);
+          if (update) return { ...t, sortOrder: update.sort_order };
+          return t;
+        })
+      };
+    }));
+    
+    for (const update of updates) {
+      await supabase.from('tasks').update({ sort_order: update.sort_order }).eq('id', update.id);
+    }
+    logAction('task_update', `reordered tasks manually`);
   };
 
   // Export/Import
@@ -476,6 +522,46 @@ export default function App() {
     }
   };
 
+  const handleNotifyNow = async () => {
+    if (!activeProject || selectedTaskIdsForNotify.length === 0) return;
+    
+    // Group selected tasks by assignee
+    const selectedTasks = tasks.filter(t => selectedTaskIdsForNotify.includes(t.id));
+    const assigneesMap: Record<string, Task[]> = {};
+    
+    selectedTasks.forEach(task => {
+      task.assignee.forEach(a => {
+        if (!assigneesMap[a]) assigneesMap[a] = [];
+        assigneesMap[a].push(task);
+      });
+    });
+
+    const profiles = await fetchAllProfiles();
+    
+    Object.entries(assigneesMap).forEach(([assigneeName, usersSelectedTasks]) => {
+      const profile = profiles.find(p => {
+         const firstName = p.full_name ? p.full_name.split(' ')[0] : p.email.split('@')[0];
+         return firstName.toLowerCase() === assigneeName.toLowerCase();
+      });
+      
+      if (profile) {
+        const allTasksString = usersSelectedTasks.map(t => `- ${t.name}`).join('\n');
+        sendTaskAssignmentEmail(
+          profile.email, 
+          profile.full_name || assigneeName, 
+          activeProject.name, 
+          "Multiple Tasks", // Not used in this template since we switched to {{all_tasks}}
+          allTasksString
+        ).catch(err => console.error("Could not send assignment email", err));
+      }
+    });
+
+    // Exit mode
+    setIsNotifyMode(false);
+    setSelectedTaskIdsForNotify([]);
+    alert("Notification emails have been queued for sending!");
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
@@ -545,6 +631,12 @@ export default function App() {
         onOpenHistory={() => setIsHistoryOpen(true)}
         restrictedMode={restrictedMode}
         onLogout={handleLogout}
+        isNotifyMode={isNotifyMode}
+        onStartNotifyMode={() => { setIsNotifyMode(true); setSelectedTaskIdsForNotify([]); }}
+        onCancelNotifyMode={() => { setIsNotifyMode(false); setSelectedTaskIdsForNotify([]); }}
+        onNotifyNow={handleNotifyNow}
+        selectedTaskCount={selectedTaskIdsForNotify.length}
+        isOwner={isGlobalOwner}
       />
 
       {/* Main Stats Summary Strip & Content Workspace */}
@@ -614,6 +706,14 @@ export default function App() {
             onUpdateTaskDates={handleUpdateTaskDates}
             timelineScrollRef={timelineScrollRef}
             restrictedMode={restrictedMode}
+            isNotifyMode={isNotifyMode}
+            selectedTaskIds={selectedTaskIdsForNotify}
+            onToggleTaskSelection={(id) => {
+              setSelectedTaskIdsForNotify(prev => 
+                prev.includes(id) ? prev.filter(tid => tid !== id) : [...prev, id]
+              );
+            }}
+            onReorderTasks={handleReorderTasks}
           />
         </section>
 
@@ -622,6 +722,7 @@ export default function App() {
           diagrams={activeProject?.diagrams || []}
           onUpdateDiagrams={handleUpdateDiagrams}
           restrictedMode={restrictedMode}
+          isOwner={isGlobalOwner}
         />
 
       </main>
@@ -644,6 +745,8 @@ export default function App() {
         personnel={personnel}
         onUpdatePersonnel={handleUpdatePersonnel}
         taskAssignees={tasks.flatMap(t => t.assignee)}
+        projectName={activeProject?.name || 'Project'}
+        isOwner={isGlobalOwner}
       />
 
       {/* Export Format Selector Modal */}

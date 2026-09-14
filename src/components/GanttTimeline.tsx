@@ -11,12 +11,15 @@ import {
   Link2, 
   User, 
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  Circle,
+  CheckCircle2,
+  GripVertical
 } from 'lucide-react';
 import { Task, ZoomLevel, DragState } from '../types';
 import { COLOR_MAP } from '../data/defaultTasks';
 import { 
-  TimelineBounds, 
+  TimelineBounds,
   generateHeaderCells, 
   getPxPerDay, 
   getDaysDiff, 
@@ -35,6 +38,10 @@ interface GanttTimelineProps {
   onUpdateTaskDates: (id: string, start: string, end: string) => void;
   timelineScrollRef: React.RefObject<HTMLDivElement | null>;
   restrictedMode?: boolean;
+  isNotifyMode?: boolean;
+  selectedTaskIds?: string[];
+  onToggleTaskSelection?: (id: string) => void;
+  onReorderTasks?: (sourceId: string, targetId: string) => void;
 }
 
 export default function GanttTimeline({
@@ -47,10 +54,15 @@ export default function GanttTimeline({
   onUpdateTaskDates,
   timelineScrollRef,
   restrictedMode = false,
+  isNotifyMode = false,
+  selectedTaskIds = [],
+  onToggleTaskSelection,
+  onReorderTasks,
 }: GanttTimelineProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [draggedTaskDates, setDraggedTaskDates] = useState<{ id: string; start: string; end: string } | null>(null);
+  const [draggedSidebarId, setDraggedSidebarId] = useState<string | null>(null);
 
   const pxPerDay = getPxPerDay(zoom);
   const totalWidth = bounds.totalDays * pxPerDay;
@@ -148,8 +160,13 @@ export default function GanttTimeline({
     const handleMouseUp = () => {
       // Trigger parent update ONLY if dates actually changed
       const currentTask = tasks.find(t => t.id === dragState.taskId);
-      if (currentTask && (finalStart !== currentTask.startDate || finalEnd !== currentTask.endDate)) {
-        onUpdateTaskDates(dragState.taskId, finalStart, finalEnd);
+      if (currentTask) {
+        if (finalStart !== currentTask.startDate || finalEnd !== currentTask.endDate) {
+          onUpdateTaskDates(dragState.taskId, finalStart, finalEnd);
+        } else if (dragState.action === 'move' && !restrictedMode && !isNotifyMode) {
+          // If no dates changed during a 'move' action, it was just a click. Open the edit modal!
+          onEditTask(currentTask);
+        }
       }
       setDragState(null);
       setDraggedTaskDates(null);
@@ -259,28 +276,70 @@ export default function GanttTimeline({
                 Low: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/40',
               };
 
+              const isSelected = isNotifyMode && selectedTaskIds?.includes(task.id);
+
               return (
                 <div 
                   key={task.id} 
-                  className={`h-14 px-6 flex items-center justify-between gap-4 transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/20 select-none group`}
+                  onClick={() => isNotifyMode && onToggleTaskSelection?.(task.id)}
+                  draggable={!restrictedMode && !isNotifyMode}
+                  onDragStart={(e) => {
+                    if (restrictedMode || isNotifyMode) return;
+                    e.dataTransfer.setData('text/plain', task.id);
+                    setDraggedSidebarId(task.id);
+                  }}
+                  onDragOver={(e) => {
+                    if (restrictedMode || isNotifyMode) return;
+                    e.preventDefault(); // allow drop
+                  }}
+                  onDrop={(e) => {
+                    if (restrictedMode || isNotifyMode) return;
+                    e.preventDefault();
+                    const sourceId = e.dataTransfer.getData('text/plain');
+                    if (sourceId && sourceId !== task.id && onReorderTasks) {
+                      onReorderTasks(sourceId, task.id);
+                    }
+                    setDraggedSidebarId(null);
+                  }}
+                  onDragEnd={() => setDraggedSidebarId(null)}
+                  className={`h-14 px-6 flex items-center justify-between gap-4 transition-colors ${isNotifyMode ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/40' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'} ${draggedSidebarId === task.id ? 'opacity-50' : 'opacity-100'} select-none group`}
                   id={`side-row-${task.id}`}
                 >
-                  <div className="flex-1 min-w-0 pr-1">
-                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate flex items-center gap-1.5" title={task.name}>
-                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${COLOR_MAP[task.color]?.accent || 'bg-slate-500'}`} />
-                      <span className="truncate">{task.name}</span>
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-400 font-mono">
-                      <span className="truncate">👤 {task.assignee.join(', ')}</span>
-                      <span>·</span>
-                      <span className={`px-1.5 py-0.2 border rounded-md font-sans text-[9px] font-bold uppercase tracking-wide ${priorityStyles[task.priority]}`}>
-                        {task.priority}
-                      </span>
+                  <div className="flex-1 min-w-0 pr-1 flex items-center gap-3">
+                    {/* Drag Handle */}
+                    {!restrictedMode && !isNotifyMode && (
+                      <div className="cursor-grab active:cursor-grabbing text-slate-300 dark:text-slate-600 hover:text-slate-500 transition-colors">
+                        <GripVertical className="w-4 h-4" />
+                      </div>
+                    )}
+                    {/* Notify Mode Checkbox */}
+                    {isNotifyMode && (
+                      <div className="shrink-0 flex items-center justify-center transition-transform active:scale-95">
+                        {isSelected ? (
+                          <CheckCircle2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-slate-400 dark:group-hover:text-slate-500" />
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate flex items-center gap-1.5" title={task.name}>
+                        {!isNotifyMode && <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${COLOR_MAP[task.color]?.accent || 'bg-slate-500'}`} />}
+                        <span className="truncate">{task.name}</span>
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-400 font-mono">
+                        <span className="truncate">👤 {task.assignee.join(', ')}</span>
+                        <span>·</span>
+                        <span className={`px-1.5 py-0.2 border rounded-md font-sans text-[9px] font-bold uppercase tracking-wide ${priorityStyles[task.priority]}`}>
+                          {task.priority}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
                   {/* Actions buttons on hovering */}
-                  {!restrictedMode && (
+                  {!restrictedMode && !isNotifyMode && (
                     <div className="flex items-center gap-1 opacity-80 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0" id={`row-actions-${task.id}`}>
                       <button
                         onClick={() => onEditTask(task)}
@@ -430,11 +489,12 @@ export default function GanttTimeline({
               const barWidth = durationDays * pxPerDay;
 
               const mapping = COLOR_MAP[task.color] || COLOR_MAP.indigo;
+              const isSelected = isNotifyMode && selectedTaskIds.includes(task.id);
 
               return (
                 <div 
                   key={task.id} 
-                  className="h-14 relative flex items-center border-r border-slate-100 dark:border-slate-800"
+                  className={`h-14 relative flex items-center border-r border-slate-100 dark:border-slate-800 transition-colors ${isSelected ? 'bg-indigo-50/60 dark:bg-indigo-900/20' : ''}`}
                   id={`timeline-row-${task.id}`}
                 >
                   {/* Grid background day vertical dividers */}
@@ -454,12 +514,16 @@ export default function GanttTimeline({
                       left: `${leftPos}px`, 
                       width: `${barWidth}px`,
                     }}
-                    className={`h-[34px] absolute rounded-xl border border-solid ${mapping.bg} ${mapping.border} hover:shadow-md transition-all group overflow-visible z-10`}
+                    className={`h-[34px] absolute rounded-xl border border-solid hover:shadow-md transition-all group overflow-visible z-10 ${
+                      isSelected 
+                        ? 'bg-indigo-500 border-indigo-600 ring-4 ring-indigo-500/40 dark:ring-indigo-400/30 shadow-lg scale-102' 
+                        : `${mapping.bg} ${mapping.border}`
+                    }`}
                     id={`task-bar-${task.id}`}
                   >
                     
                     {/* Resizable Left Drag Handles */}
-                    {!restrictedMode && (
+                    {!restrictedMode && !isNotifyMode && (
                       <div 
                         className="absolute left-0 top-0 bottom-0 w-2.5 z-20 cursor-ew-resize hover:bg-slate-300/30 dark:hover:bg-slate-600/30 group-hover:bg-slate-300 dark:group-hover:bg-slate-700 rounded-l-xl transition-all"
                         onMouseDown={(e) => startDrag(e, task, 'resize-start')}
@@ -470,21 +534,21 @@ export default function GanttTimeline({
 
                     {/* Draggable container box (Middle) */}
                     <div 
-                      className={`absolute ${restrictedMode ? 'left-0 right-0' : 'left-2.5 right-2.5'} top-0 bottom-0 ${restrictedMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} flex items-center pr-2 pl-3 select-none overflow-hidden z-10`}
-                      onMouseDown={(e) => !restrictedMode && startDrag(e, task, 'move')}
+                      className={`absolute ${restrictedMode || isNotifyMode ? 'left-0 right-0' : 'left-2.5 right-2.5'} top-0 bottom-0 ${isNotifyMode ? 'cursor-default' : restrictedMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} flex items-center pr-2 pl-3 select-none overflow-hidden z-10`}
+                      onMouseDown={(e) => !restrictedMode && !isNotifyMode && startDrag(e, task, 'move')}
                       onClick={() => {
-                        if (restrictedMode) {
+                        if (restrictedMode && !isNotifyMode) {
                           onEditTask(task);
                         }
                       }}
-                      title={restrictedMode ? `Click to view task or update progress (${task.name})` : `Drag bar left/right to move dates (${task.startDate} to ${task.endDate})`}
+                      title={isNotifyMode ? `(${task.name})` : restrictedMode ? `Click to view task or update progress (${task.name})` : `Drag bar left/right to move dates (${task.startDate} to ${task.endDate})`}
                       id={`bar-drag-middle-${task.id}`}
                     >
                       <div className="w-full flex items-center justify-between pointer-events-none" id={`bar-meta-content-${task.id}`}>
-                        <span className={`text-[11px] font-bold ${mapping.text} truncate max-w-[85%] truncate`}>
+                        <span className={`text-[11px] font-bold ${isSelected ? 'text-white' : mapping.text} truncate max-w-[85%] truncate`}>
                           {task.name}
                         </span>
-                        <span className={`text-[9px] font-bold ${mapping.text} font-mono shrink-0 bg-white/70 dark:bg-slate-900/60 px-1 py-0.2 rounded`}>
+                        <span className={`text-[9px] font-bold ${isSelected ? 'text-indigo-700' : mapping.text} font-mono shrink-0 bg-white/70 dark:bg-slate-900/60 px-1 py-0.2 rounded`}>
                           {task.progress}%
                         </span>
                       </div>
@@ -504,7 +568,7 @@ export default function GanttTimeline({
                     />
 
                     {/* Resizable Right Drag Handles */}
-                    {!restrictedMode && (
+                    {!restrictedMode && !isNotifyMode && (
                       <div 
                         className="absolute right-0 top-0 bottom-0 w-2.5 z-20 cursor-ew-resize hover:bg-slate-300/30 dark:hover:bg-slate-600/30 group-hover:bg-slate-300 dark:group-hover:bg-slate-700 rounded-r-xl transition-all"
                         onMouseDown={(e) => startDrag(e, task, 'resize-end')}

@@ -11,7 +11,8 @@ export const mapDbTask = (dbTask: any): Task => ({
   priority: dbTask.priority,
   assignee: dbTask.assignee || [],
   color: dbTask.color,
-  dependencies: dbTask.dependencies || []
+  dependencies: dbTask.dependencies || [],
+  sortOrder: dbTask.sort_order || 0
 });
 
 // Helper to map Frontend task to DB task
@@ -25,8 +26,18 @@ export const mapTaskToDb = (task: Task, projectId: string) => ({
   priority: task.priority,
   assignee: task.assignee,
   color: task.color,
-  dependencies: task.dependencies
+  dependencies: task.dependencies,
+  sort_order: task.sortOrder || 0
 });
+
+export const fetchAllProfiles = async (): Promise<{ id: string, email: string, full_name: string }[]> => {
+  const { data, error } = await supabase.from('profiles').select('*');
+  if (error) {
+    console.error('Error fetching profiles:', error);
+    return [];
+  }
+  return data || [];
+};
 
 export const fetchAllProjects = async (): Promise<Project[]> => {
   const { data, error } = await supabase.from('projects').select('*');
@@ -49,17 +60,20 @@ export const fetchAllProjects = async (): Promise<Project[]> => {
 };
 
 export const fetchProjectDetails = async (projectId: string): Promise<Project | null> => {
-  const [projRes, tasksRes, logsRes, diagramsRes] = await Promise.all([
+  const [projRes, tasksRes, logsRes, diagramsRes, profilesRes] = await Promise.all([
     supabase.from('projects').select('*').eq('id', projectId).single(),
     supabase.from('tasks').select('*').eq('project_id', projectId),
     supabase.from('activity_logs').select('*').eq('project_id', projectId).order('timestamp', { ascending: false }),
-    supabase.from('project_diagrams').select('*').eq('project_id', projectId)
+    supabase.from('project_diagrams').select('*').eq('project_id', projectId),
+    supabase.from('profiles').select('id, email, full_name')
   ]);
 
   if (projRes.error) {
     console.error('Error fetching project:', projRes.error);
     return null;
   }
+
+  const profiles = profilesRes.data || [];
 
   return {
     id: projRes.data.id,
@@ -70,13 +84,20 @@ export const fetchProjectDetails = async (projectId: string): Promise<Project | 
     shareToken: projRes.data.share_token,
     collaborators: projRes.data.collaborators || [],
     tasks: (tasksRes.data || []).map(mapDbTask),
-    logs: (logsRes.data || []).map((l: any) => ({
-      id: l.id,
-      timestamp: l.timestamp,
-      user: l.user_id, // We'll store string name here for simplicity
-      actionType: l.action_type,
-      details: l.details
-    })),
+    logs: (logsRes.data || []).map((l: any) => {
+      const profile = profiles.find(p => p.id === l.user_id);
+      let userName = l.user_id;
+      if (profile) {
+        userName = profile.full_name || profile.email.split('@')[0];
+      }
+      return {
+        id: l.id,
+        timestamp: l.timestamp,
+        user: userName,
+        actionType: l.action_type,
+        details: l.details
+      };
+    }),
     diagrams: (diagramsRes.data || []).map((d: any) => ({
       id: d.id,
       title: d.title,
