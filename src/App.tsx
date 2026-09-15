@@ -778,6 +778,7 @@ export default function App() {
                 onUpdateTaskDates={handleUpdateTaskDates}
                 timelineScrollRef={timelineScrollRef}
                 restrictedMode={restrictedMode}
+                personnel={personnel}
                 isNotifyMode={isNotifyMode}
                 selectedTaskIds={selectedTaskIdsForNotify}
               />
@@ -795,6 +796,7 @@ export default function App() {
               onUpdateTaskDates={handleUpdateTaskDates}
               timelineScrollRef={timelineScrollRef}
               restrictedMode={restrictedMode}
+              personnel={personnel}
               isNotifyMode={isNotifyMode}
               selectedTaskIds={selectedTaskIdsForNotify}
               onToggleTaskSelection={(id) => {

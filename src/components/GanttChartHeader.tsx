@@ -160,7 +160,7 @@ export default function GanttChartHeader({
           <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 self-center hidden sm:block" />
 
           {/* Personnel Manager Button */}
-          {onOpenPersonnel && !restrictedMode && (
+          {onOpenPersonnel && (
             <button
               onClick={onOpenPersonnel}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-xl border border-violet-200 dark:border-violet-800/60 hover:bg-violet-50 dark:hover:bg-violet-950/30 text-violet-700 dark:text-violet-300 bg-white dark:bg-slate-800 shadow-xs cursor-pointer select-none transition-colors"

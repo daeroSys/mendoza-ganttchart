@@ -42,6 +42,7 @@ interface GanttTimelineProps {
   selectedTaskIds?: string[];
   onToggleTaskSelection?: (id: string) => void;
   onReorderTasks?: (sourceId: string, targetId: string) => void;
+  personnel?: string[];
 }
 
 export default function GanttTimeline({
@@ -58,6 +59,7 @@ export default function GanttTimeline({
   selectedTaskIds = [],
   onToggleTaskSelection,
   onReorderTasks,
+  personnel = [],
 }: GanttTimelineProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -329,7 +331,7 @@ export default function GanttTimeline({
                         <span className="truncate">{task.name}</span>
                       </p>
                       <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-400 font-mono">
-                        <span className="truncate">👤 {task.assignee.join(', ')}</span>
+                        <span className="truncate">👤 {(personnel.length > 0 && task.assignee.length === personnel.length) ? 'All Collaborators' : task.assignee.join(', ')}</span>
                         <span>·</span>
                         <span className={`px-1.5 py-0.2 border rounded-md font-sans text-[9px] font-bold uppercase tracking-wide ${priorityStyles[task.priority]}`}>
                           {task.priority}
