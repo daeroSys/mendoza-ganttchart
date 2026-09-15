@@ -83,6 +83,10 @@ export default function App() {
   const [isIdentityOpen, setIsIdentityOpen] = useState<boolean>(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
 
+  // Static image generation for viewers
+  const [staticGanttImage, setStaticGanttImage] = useState<string | null>(null);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
 
   // Trigger identity prompt
@@ -195,6 +199,13 @@ export default function App() {
     }
   }, [currentView, activeProject]);
 
+  // 5. Force week zoom for restricted mode static capture
+  useEffect(() => {
+    if (restrictedMode && zoom !== 'week') {
+      setZoom('week');
+    }
+  }, [restrictedMode, zoom]);
+
   const tasks = activeProject?.tasks || [];
   const personnel = activeProject?.personnel || [];
 
@@ -296,6 +307,31 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [zoom, tasks.length, currentView]);
+
+  // Generate static image for restricted users
+  useEffect(() => {
+    if (restrictedMode && currentView === 'gantt' && tasks.length > 0) {
+      setIsGeneratingImage(true);
+      
+      const generateTimer = setTimeout(async () => {
+        const el = document.getElementById('gantt-planner-container');
+        if (el) {
+          try {
+            const { generateExportImage } = await import('./utils/exportUtils');
+            const dataUrl = await generateExportImage(el, 'png');
+            setStaticGanttImage(dataUrl);
+          } catch (error) {
+            console.error('Failed to generate static viewer image:', error);
+          }
+        }
+        setIsGeneratingImage(false);
+      }, 800); // Wait for fonts, layouts, and handleScrollToToday to finish
+
+      return () => clearTimeout(generateTimer);
+    } else {
+      setStaticGanttImage(null);
+    }
+  }, [restrictedMode, currentView, tasks, zoom, filters, activeProjectId]);
 
   // Compute unique assignee values
   const assignees = Array.from(
@@ -644,6 +680,7 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-6 mt-6 flex flex-col gap-6" id="dashboard-main-view">
         
         {/* KPI Stats Cards Strip */}
+        {!restrictedMode && (
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="kpi-dashboard-grid">
           
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl flex items-center gap-4 shadow-2xs">
@@ -694,29 +731,68 @@ export default function App() {
           </div>
 
         </section>
+        )}
 
         {/* Primary Timeline Section Dashboard Canvas */}
-        <section className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4.5 sm:p-6 rounded-3xl shadow-sm" id="gantt-chart-section">
-          <GanttTimeline
-            tasks={tasks}
-            filteredTasks={filteredTasks}
-            bounds={bounds}
-            zoom={zoom}
-            onEditTask={handleEditTaskTrigger}
-            onDeleteTask={handleDeleteTask}
-            onUpdateTaskDates={handleUpdateTaskDates}
-            timelineScrollRef={timelineScrollRef}
-            restrictedMode={restrictedMode}
-            isNotifyMode={isNotifyMode}
-            selectedTaskIds={selectedTaskIdsForNotify}
-            onToggleTaskSelection={(id) => {
-              setSelectedTaskIdsForNotify(prev => 
-                prev.includes(id) ? prev.filter(tid => tid !== id) : [...prev, id]
-              );
-            }}
-            onReorderTasks={handleReorderTasks}
-          />
-        </section>
+        {restrictedMode ? (
+          <section className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4 sm:p-6 rounded-3xl shadow-sm overflow-hidden flex items-center justify-center min-h-[300px]" id="gantt-chart-static-section">
+            {isGeneratingImage ? (
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 border-4 border-indigo-200 dark:border-indigo-900/50 border-t-indigo-600 dark:border-t-indigo-500 rounded-full animate-spin" />
+                <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 animate-pulse">Rendering Gantt Chart Image...</p>
+              </div>
+            ) : staticGanttImage ? (
+              <div className="w-full h-full max-h-[75vh] overflow-auto scrollbar-thin flex justify-center">
+                <img 
+                  src={staticGanttImage} 
+                  alt="Static Gantt Chart Export" 
+                  className="max-w-max object-contain shadow-sm border border-slate-200/50 dark:border-slate-800/50 rounded-xl"
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">Failed to render static image. Please refresh the page.</p>
+            )}
+            
+            {/* Hidden DOM element for html2canvas to capture */}
+            <div className="absolute top-[-9999px] left-[-9999px] opacity-0 pointer-events-none">
+              <GanttTimeline
+                tasks={tasks}
+                filteredTasks={filteredTasks}
+                bounds={bounds}
+                zoom={zoom}
+                onEditTask={handleEditTaskTrigger}
+                onDeleteTask={handleDeleteTask}
+                onUpdateTaskDates={handleUpdateTaskDates}
+                timelineScrollRef={timelineScrollRef}
+                restrictedMode={restrictedMode}
+                isNotifyMode={isNotifyMode}
+                selectedTaskIds={selectedTaskIdsForNotify}
+              />
+            </div>
+          </section>
+        ) : (
+          <section className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4.5 sm:p-6 rounded-3xl shadow-sm" id="gantt-chart-section">
+            <GanttTimeline
+              tasks={tasks}
+              filteredTasks={filteredTasks}
+              bounds={bounds}
+              zoom={zoom}
+              onEditTask={handleEditTaskTrigger}
+              onDeleteTask={handleDeleteTask}
+              onUpdateTaskDates={handleUpdateTaskDates}
+              timelineScrollRef={timelineScrollRef}
+              restrictedMode={restrictedMode}
+              isNotifyMode={isNotifyMode}
+              selectedTaskIds={selectedTaskIdsForNotify}
+              onToggleTaskSelection={(id) => {
+                setSelectedTaskIdsForNotify(prev => 
+                  prev.includes(id) ? prev.filter(tid => tid !== id) : [...prev, id]
+                );
+              }}
+              onReorderTasks={handleReorderTasks}
+            />
+          </section>
+        )}
 
         {/* Project Architecture & Design Diagrams Hub */}
         <DiagramsHub

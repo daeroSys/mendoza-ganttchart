@@ -265,6 +265,7 @@ export default function GanttChartHeader({
       </div>
 
       {/* Grid Filter Bar: Search, Filters, and Zoom Tabs */}
+      {!restrictedMode && (
       <div className="flex flex-col gap-4 mt-6 xl:flex-row xl:items-center xl:justify-between bg-slate-50 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/60" id="filter-wrapper-bar">
 
         {/* Dynamic Filters Area */}
@@ -352,6 +353,7 @@ export default function GanttChartHeader({
         </div>
 
       </div>
+      )}
     </header>
   );
 }
