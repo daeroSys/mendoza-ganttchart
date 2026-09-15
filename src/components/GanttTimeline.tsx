@@ -42,6 +42,7 @@ interface GanttTimelineProps {
   selectedTaskIds?: string[];
   onToggleTaskSelection?: (id: string) => void;
   onReorderTasks?: (sourceId: string, targetId: string) => void;
+  onViewTaskDetails?: (task: Task) => void;
   personnel?: string[];
 }
 
@@ -59,6 +60,7 @@ export default function GanttTimeline({
   selectedTaskIds = [],
   onToggleTaskSelection,
   onReorderTasks,
+  onViewTaskDetails,
   personnel = [],
 }: GanttTimelineProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -283,7 +285,15 @@ export default function GanttTimeline({
               return (
                 <div 
                   key={task.id} 
-                  onClick={() => isNotifyMode && onToggleTaskSelection?.(task.id)}
+                  onClick={() => {
+                    if (isNotifyMode) {
+                      onToggleTaskSelection?.(task.id);
+                    } else if (restrictedMode) {
+                      onViewTaskDetails?.(task);
+                    } else {
+                      onEditTask(task);
+                    }
+                  }}
                   draggable={!restrictedMode && !isNotifyMode}
                   onDragStart={(e) => {
                     if (restrictedMode || isNotifyMode) return;
@@ -304,7 +314,7 @@ export default function GanttTimeline({
                     setDraggedSidebarId(null);
                   }}
                   onDragEnd={() => setDraggedSidebarId(null)}
-                  className={`h-14 px-6 flex items-center justify-between gap-4 transition-colors ${isNotifyMode ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/40' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'} ${draggedSidebarId === task.id ? 'opacity-50' : 'opacity-100'} select-none group`}
+                  className={`h-14 px-6 flex items-center justify-between gap-4 transition-colors cursor-pointer ${isNotifyMode ? 'hover:bg-slate-100 dark:hover:bg-slate-800/40' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'} ${draggedSidebarId === task.id ? 'opacity-50' : 'opacity-100'} select-none group`}
                   id={`side-row-${task.id}`}
                 >
                   <div className="flex-1 min-w-0 pr-1 flex items-center gap-3">
@@ -540,7 +550,7 @@ export default function GanttTimeline({
                       onMouseDown={(e) => !restrictedMode && !isNotifyMode && startDrag(e, task, 'move')}
                       onClick={() => {
                         if (restrictedMode && !isNotifyMode) {
-                          onEditTask(task);
+                          onViewTaskDetails?.(task);
                         }
                       }}
                       title={isNotifyMode ? `(${task.name})` : restrictedMode ? `Click to view task or update progress (${task.name})` : `Drag bar left/right to move dates (${task.startDate} to ${task.endDate})`}

@@ -44,17 +44,17 @@ export default function PersonnelModal({
 
   if (!isOpen) return null;
 
-  const handleAdd = async (user: { firstName: string, email: string, full_name: string }) => {
-    if (personnel.some(p => p.toLowerCase() === user.firstName.toLowerCase())) {
+  const handleAdd = async (user: { displayName: string, email: string, full_name: string }) => {
+    if (personnel.some(p => p.toLowerCase() === user.displayName.toLowerCase())) {
       return;
     }
     
     // Immediately update UI
-    onUpdatePersonnel([...personnel, user.firstName]);
+    onUpdatePersonnel([...personnel, user.displayName]);
 
     // Send the email in the background
     try {
-      await sendPersonnelInviteEmail(user.email, user.full_name || user.firstName, projectName);
+      await sendPersonnelInviteEmail(user.email, user.displayName, projectName);
     } catch (err) {
       console.error("Could not send invite email", err);
       alert("Added to project, but failed to send the invite email. Please check EmailJS configuration or browser console.");
@@ -71,11 +71,11 @@ export default function PersonnelModal({
     setConfirmDelete(null);
   };
 
-  // Extract first names from registered users
+  // Extract full names from registered users
   const availableUsers = profiles.map(p => {
-    const firstName = p.full_name ? p.full_name.split(' ')[0] : p.email.split('@')[0];
-    return { ...p, firstName };
-  }).filter(p => !personnel.includes(p.firstName));
+    const displayName = p.full_name || p.email.split('@')[0];
+    return { ...p, displayName };
+  }).filter(p => !personnel.includes(p.displayName));
 
   return (
     <AnimatePresence>
@@ -145,10 +145,10 @@ export default function PersonnelModal({
                     <div key={user.id} className="flex justify-between items-center p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                          {user.firstName[0].toUpperCase()}
+                          {user.displayName[0].toUpperCase()}
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{user.firstName}</p>
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{user.displayName}</p>
                           <p className="text-[10px] text-slate-400">{user.email}</p>
                         </div>
                       </div>

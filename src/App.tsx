@@ -15,6 +15,7 @@ import GanttChartHeader from './components/GanttChartHeader';
 import GanttTimeline from './components/GanttTimeline';
 import TaskModal from './components/TaskModal';
 import PersonnelModal from './components/PersonnelModal';
+import TaskDetailsModal from './components/TaskDetailsModal';
 import HomePage from './components/HomePage';
 import ExportModal from './components/ExportModal';
 import UserIdentityModal from './components/UserIdentityModal';
@@ -70,6 +71,7 @@ export default function App() {
     assignee: 'All',
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTaskDetailsOpen, setIsTaskDetailsOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [isPersonnelOpen, setIsPersonnelOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -779,6 +781,10 @@ export default function App() {
                 timelineScrollRef={timelineScrollRef}
                 restrictedMode={restrictedMode}
                 personnel={personnel}
+                onViewTaskDetails={(task) => {
+                  setTaskToEdit(task);
+                  setIsTaskDetailsOpen(true);
+                }}
                 isNotifyMode={isNotifyMode}
                 selectedTaskIds={selectedTaskIdsForNotify}
               />
@@ -797,6 +803,10 @@ export default function App() {
               timelineScrollRef={timelineScrollRef}
               restrictedMode={restrictedMode}
               personnel={personnel}
+              onViewTaskDetails={(task) => {
+                setTaskToEdit(task);
+                setIsTaskDetailsOpen(true);
+              }}
               isNotifyMode={isNotifyMode}
               selectedTaskIds={selectedTaskIdsForNotify}
               onToggleTaskSelection={(id) => {
@@ -832,6 +842,13 @@ export default function App() {
         currentUser={currentUser}
         userEmail={session?.user?.email}
         userName={session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0]}
+      />
+
+      {/* Task Details Display Modal (Read-Only) */}
+      <TaskDetailsModal
+        isOpen={isTaskDetailsOpen}
+        onClose={() => setIsTaskDetailsOpen(false)}
+        task={taskToEdit}
       />
 
       {/* Personnel Management Modal */}

@@ -16,6 +16,7 @@ export interface Task {
   color: string;      // Tailwind color names or Hex values
   dependencies: string[]; // Parent Task IDs
   sortOrder?: number;
+  description?: string;
 }
 
 export interface ActivityLog {

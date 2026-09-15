@@ -45,6 +45,7 @@ export default function TaskModal({
   const [assigneeStringInput, setAssigneeStringInput] = useState('');
   const [color, setColor] = useState('indigo');
   const [dependencies, setDependencies] = useState<string[]>([]);
+  const [description, setDescription] = useState('');
   const [error, setError] = useState('');
 
   // Synchronize state when open & taskToEdit changes
@@ -60,6 +61,7 @@ export default function TaskModal({
       setAssigneeStringInput(initialAssignees.join(', '));
       setColor(taskToEdit.color);
       setDependencies(taskToEdit.dependencies || []);
+      setDescription(taskToEdit.description || '');
       setError('');
     } else {
       setName('');
@@ -71,6 +73,7 @@ export default function TaskModal({
       setAssigneeStringInput('');
       setColor('indigo');
       setDependencies([]);
+      setDescription('');
       setError('');
     }
   }, [taskToEdit, isOpen]);
@@ -150,6 +153,7 @@ export default function TaskModal({
       assignee: finalAssignees,
       color,
       dependencies,
+      description: description.trim(),
     });
     
     onClose();
@@ -219,6 +223,22 @@ export default function TaskModal({
                 disabled={!canEditAnythingElse}
                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800/80 rounded-xl focus:outline-hidden focus:border-indigo-500 text-slate-800 dark:text-slate-100 font-sans transition-all focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-950 disabled:opacity-60 disabled:cursor-not-allowed"
                 id="input-task-name"
+              />
+            </div>
+
+            {/* Task Description */}
+            <div className="mb-4" id="grp-task-description">
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 dark:bg-transparent tracking-wider uppercase mb-1.5 flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7" /></svg> Description
+              </label>
+              <textarea
+                placeholder="Add more details about this task..."
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                disabled={!canEditAnythingElse}
+                rows={3}
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800/80 rounded-xl focus:outline-hidden focus:border-indigo-500 text-slate-800 dark:text-slate-100 font-sans transition-all focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-950 disabled:opacity-60 disabled:cursor-not-allowed resize-none"
+                id="input-task-description"
               />
             </div>
 
