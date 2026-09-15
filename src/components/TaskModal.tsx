@@ -17,6 +17,7 @@ interface TaskModalProps {
   allTasks: Task[];
   personnel?: string[];
   restrictedMode?: boolean;
+  currentUser?: string;
 }
 
 const COLORS = Object.keys(COLOR_MAP);
@@ -29,6 +30,7 @@ export default function TaskModal({
   allTasks,
   personnel = [],
   restrictedMode = false,
+  currentUser,
 }: TaskModalProps) {
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('2026-05-27');
@@ -70,6 +72,10 @@ export default function TaskModal({
   }, [taskToEdit, isOpen]);
 
   if (!isOpen) return null;
+
+  const isAssigned = assignee.includes(currentUser || '');
+  const canEditProgress = !restrictedMode || isAssigned;
+  const canEditAnythingElse = !restrictedMode;
 
   // Filter possible dependencies - prevent self-dependency
   const availableDependencies = allTasks.filter(
@@ -200,7 +206,7 @@ export default function TaskModal({
                 value={name}
                 onChange={e => setName(e.target.value)}
                 maxLength={80}
-                disabled={restrictedMode}
+                disabled={!canEditAnythingElse}
                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800/80 rounded-xl focus:outline-hidden focus:border-indigo-500 text-slate-800 dark:text-slate-100 font-sans transition-all focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-950 disabled:opacity-60 disabled:cursor-not-allowed"
                 id="input-task-name"
               />
@@ -218,7 +224,7 @@ export default function TaskModal({
                   type="date"
                   value={startDate}
                   onChange={e => setStartDate(e.target.value)}
-                  disabled={restrictedMode}
+                  disabled={!canEditAnythingElse}
                   className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800/80 rounded-xl focus:outline-hidden focus:border-indigo-500 text-slate-800 dark:text-slate-100 font-sans transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   id="input-start-date"
                 />
@@ -233,7 +239,7 @@ export default function TaskModal({
                   type="date"
                   value={endDate}
                   onChange={e => setEndDate(e.target.value)}
-                  disabled={restrictedMode}
+                  disabled={!canEditAnythingElse}
                   className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800/80 rounded-xl focus:outline-hidden focus:border-indigo-500 text-slate-800 dark:text-slate-100 font-sans transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   id="input-end-date"
                 />
@@ -273,7 +279,7 @@ export default function TaskModal({
                     placeholder="e.g. Marcus Vance, Sarah Chen (comma separated)"
                     value={assigneeStringInput}
                     onChange={e => setAssigneeStringInput(e.target.value)}
-                    disabled={restrictedMode}
+                    disabled={!canEditAnythingElse}
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800/80 rounded-xl focus:outline-hidden focus:border-indigo-500 text-slate-800 dark:text-slate-100 font-sans transition-all text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                     id="input-assignee"
                   />
@@ -289,7 +295,7 @@ export default function TaskModal({
                   <select
                     value={priority}
                     onChange={e => setPriority(e.target.value as Priority)}
-                    disabled={restrictedMode}
+                    disabled={!canEditAnythingElse}
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800/80 rounded-xl focus:outline-hidden focus:border-indigo-500 text-slate-800 dark:text-slate-100 font-sans appearance-none cursor-pointer h-10.5 disabled:opacity-60 disabled:cursor-not-allowed"
                     id="select-priority"
                   >
@@ -315,8 +321,9 @@ export default function TaskModal({
                   max="100"
                   step="5"
                   value={progress}
+                  disabled={!canEditProgress}
                   onChange={e => setProgress(Number(e.target.value))}
-                  className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                  className={`w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none accent-indigo-600 ${canEditProgress ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
                   id="input-progress-slider"
                 />
               </div>
@@ -343,7 +350,7 @@ export default function TaskModal({
                     <button
                       key={c}
                       type="button"
-                      disabled={restrictedMode}
+                      disabled={!canEditAnythingElse}
                       onClick={() => setColor(c)}
                       className={`w-8 h-8 rounded-full ${colorMatch[c] || 'bg-slate-400'} flex items-center justify-center transition-all focus:outline-hidden hover:scale-108 active:scale-95 disabled:cursor-not-allowed disabled:hover:scale-100 ${
                         isSelected ? 'ring-3 ring-indigo-600 dark:ring-indigo-400 ring-offset-2 dark:ring-offset-slate-900 scale-105' : 'opacity-85'
@@ -413,7 +420,8 @@ export default function TaskModal({
             <button
               type="button"
               onClick={handleSubmit}
-              className="px-5 py-2.5 text-xs font-bold tracking-wide uppercase text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl cursor-pointer shadow-md shadow-indigo-100 dark:shadow-none transition-all active:scale-98 select-none"
+              disabled={!canEditAnythingElse && !canEditProgress}
+              className="px-5 py-2.5 text-xs font-bold tracking-wide uppercase text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl cursor-pointer shadow-md shadow-indigo-100 dark:shadow-none transition-all active:scale-98 select-none disabled:opacity-50 disabled:cursor-not-allowed"
               id="btn-submit-modal"
             >
               {taskToEdit ? 'Save Changes' : 'Create Task'}

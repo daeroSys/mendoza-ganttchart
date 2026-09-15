@@ -27,7 +27,9 @@ import { fetchAllProjects, fetchProjectDetails, createProject, deleteProject, up
 import { sendTaskAssignmentEmail } from './utils/emailService';
 
 const STORAGE_ZOOM_KEY = 'gantt_planner_zoom';
-const STORAGE_THEME_KEY = 'gantt_planner_theme';
+const STORAGE_THEME_KEY = 'gantt_theme_preference';
+
+export type UserRole = 'owner' | 'collaborator' | 'viewer';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -44,7 +46,9 @@ export default function App() {
   // Router state
   const [currentView, setCurrentView] = useState<'home' | 'gantt'>('home');
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [restrictedMode, setRestrictedMode] = useState<boolean>(false);
+  const [userRole, setUserRole] = useState<UserRole>('viewer');
+  const restrictedMode = userRole !== 'owner';
+  const isViewerMode = userRole === 'viewer';
 
   // Projects
   const [projects, setProjects] = useState<Project[]>([]);
@@ -128,9 +132,18 @@ export default function App() {
 
         const data = await fetchProjectDetails(projectId);
         if (data) {
-          const isCollaborator = data.collaborators?.includes(session.user.id);
-          // Collaborators are restricted (can only edit progress), Owner is not restricted
-          setRestrictedMode(!isGlobalOwner);
+          const userName = session.user?.user_metadata?.full_name || session.user?.email?.split('@')[0] || 'User';
+          const isCollaborator = 
+            data.collaborators?.includes(session.user.id) ||
+            data.personnel?.some((p: string) => 
+              p.toLowerCase() === session.user?.email?.toLowerCase() ||
+              p.toLowerCase() === userName.toLowerCase()
+            );
+
+          let role: UserRole = 'viewer';
+          if (isGlobalOwner) role = 'owner';
+          else if (isCollaborator) role = 'collaborator';
+          setUserRole(role);
 
           setProjects(prev => {
             const exists = prev.some(p => p.id === projectId);
@@ -142,7 +155,7 @@ export default function App() {
           window.location.hash = '';
         }
       } else {
-        setRestrictedMode(false);
+        setUserRole('viewer');
         setCurrentView('home');
         setActiveProjectId(null);
 
@@ -201,10 +214,10 @@ export default function App() {
 
   // 5. Force week zoom for restricted mode static capture
   useEffect(() => {
-    if (restrictedMode && zoom !== 'week') {
+    if (isViewerMode && zoom !== 'week') {
       setZoom('week');
     }
-  }, [restrictedMode, zoom]);
+  }, [isViewerMode, zoom]);
 
   const tasks = activeProject?.tasks || [];
   const personnel = activeProject?.personnel || [];
@@ -310,7 +323,7 @@ export default function App() {
 
   // Generate static image for restricted users
   useEffect(() => {
-    if (restrictedMode && currentView === 'gantt' && tasks.length > 0) {
+    if (isViewerMode && currentView === 'gantt' && tasks.length > 0) {
       setIsGeneratingImage(true);
       
       const generateTimer = setTimeout(async () => {
@@ -331,7 +344,7 @@ export default function App() {
     } else {
       setStaticGanttImage(null);
     }
-  }, [restrictedMode, currentView, tasks, zoom, filters, activeProjectId]);
+  }, [isViewerMode, currentView, tasks, zoom, filters, activeProjectId]);
 
   // Compute unique assignee values
   const assignees = Array.from(
@@ -680,7 +693,7 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-6 mt-6 flex flex-col gap-6" id="dashboard-main-view">
         
         {/* KPI Stats Cards Strip */}
-        {!restrictedMode && (
+        {!isViewerMode && (
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="kpi-dashboard-grid">
           
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl flex items-center gap-4 shadow-2xs">
@@ -734,7 +747,7 @@ export default function App() {
         )}
 
         {/* Primary Timeline Section Dashboard Canvas */}
-        {restrictedMode ? (
+        {isViewerMode ? (
           <section className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4 sm:p-6 rounded-3xl shadow-sm overflow-hidden flex items-center justify-center min-h-[300px]" id="gantt-chart-static-section">
             {isGeneratingImage ? (
               <div className="flex flex-col items-center gap-3">
@@ -799,6 +812,7 @@ export default function App() {
           diagrams={activeProject?.diagrams || []}
           onUpdateDiagrams={handleUpdateDiagrams}
           restrictedMode={restrictedMode}
+          isViewerMode={isViewerMode}
           isOwner={isGlobalOwner}
         />
 
@@ -813,6 +827,7 @@ export default function App() {
         allTasks={tasks}
         personnel={personnel}
         restrictedMode={restrictedMode}
+        currentUser={currentUser}
       />
 
       {/* Personnel Management Modal */}
