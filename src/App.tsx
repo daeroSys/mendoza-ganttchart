@@ -828,6 +828,8 @@ export default function App() {
         personnel={personnel}
         restrictedMode={restrictedMode}
         currentUser={currentUser}
+        userEmail={session?.user?.email}
+        userName={session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0]}
       />
 
       {/* Personnel Management Modal */}

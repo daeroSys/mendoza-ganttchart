@@ -18,6 +18,8 @@ interface TaskModalProps {
   personnel?: string[];
   restrictedMode?: boolean;
   currentUser?: string;
+  userEmail?: string;
+  userName?: string;
 }
 
 const COLORS = Object.keys(COLOR_MAP);
@@ -31,6 +33,8 @@ export default function TaskModal({
   personnel = [],
   restrictedMode = false,
   currentUser,
+  userEmail,
+  userName,
 }: TaskModalProps) {
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('2026-05-27');
@@ -73,7 +77,13 @@ export default function TaskModal({
 
   if (!isOpen) return null;
 
-  const isAssigned = assignee.includes(currentUser || '');
+  const isAssigned = assignee.some(a => {
+    const aLower = a.toLowerCase();
+    return (currentUser && aLower === currentUser.toLowerCase()) || 
+           (userEmail && aLower === userEmail.toLowerCase()) ||
+           (userName && aLower === userName.toLowerCase());
+  });
+  
   const canEditProgress = !restrictedMode || isAssigned;
   const canEditAnythingElse = !restrictedMode;
 
