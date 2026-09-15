@@ -164,11 +164,11 @@ export default function GanttChartHeader({
             <button
               onClick={onOpenPersonnel}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-xl border border-violet-200 dark:border-violet-800/60 hover:bg-violet-50 dark:hover:bg-violet-950/30 text-violet-700 dark:text-violet-300 bg-white dark:bg-slate-800 shadow-xs cursor-pointer select-none transition-colors"
-              title="Manage project personnel"
+              title="Manage project collaborators"
               id="btn-personnel"
             >
               <Users className="w-4 h-4" />
-              <span>Personnel</span>
+              <span>Collaborators</span>
             </button>
           )}
 
@@ -310,7 +310,7 @@ export default function GanttChartHeader({
                 onChange={handleAssigneeChange}
                 className="w-full pl-3.5 pr-8 py-1.5 text-sm appearance-none bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-sans text-slate-700 dark:text-slate-200 focus:outline-hidden focus:border-indigo-500 cursor-pointer shadow-2xs transition-colors"
               >
-                <option value="All">All Personnel</option>
+                <option value="All">All Collaborators</option>
                 {assignees.map(assignee => (
                   <option key={assignee} value={assignee}>
                     👤 {assignee}

@@ -245,7 +245,7 @@ export default function HomePage({
                   <Users className="w-5 h-5 text-violet-600 dark:text-violet-400" />
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500">Total Personnel</p>
+                  <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500">Total Collaborators</p>
                   <h3 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 mt-0.5">
                     {new Set(projects.flatMap(p => p.personnel)).size}
                   </h3>

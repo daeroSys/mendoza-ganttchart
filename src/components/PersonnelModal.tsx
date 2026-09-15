@@ -107,7 +107,7 @@ export default function PersonnelModal({
               </div>
               <div>
                 <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50 font-sans" id="personnel-modal-title">
-                  Manage Personnel
+                  Manage Collaborators
                 </h2>
                 <p className="text-xs text-slate-400 dark:text-slate-500 font-sans mt-0.5">
                   Add or remove team members for this project.
@@ -171,7 +171,7 @@ export default function PersonnelModal({
           {/* Personnel List (Currently Added) */}
           <div className="p-6 max-h-80 overflow-y-auto scrollbar-thin">
             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase mb-3">
-              Current Project Personnel
+              Current Collaborators
             </label>
             {personnel.length === 0 ? (
               <div className="text-center py-8">
