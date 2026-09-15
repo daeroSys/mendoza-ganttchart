@@ -409,6 +409,24 @@ export default function App() {
     await supabase.from('tasks').delete().eq('id', id);
     logAction('task_delete', `deleted task "${taskToDelete.name}"`);
   };
+  const handleUpdateTaskProgress = async (taskId: string, newProgress: number) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    // Optimistic UI
+    const updatedTasks = tasks.map(t => t.id === taskId ? { ...t, progress: newProgress } : t);
+    setTasks(updatedTasks);
+    if (activeProject) {
+      setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, tasks: updatedTasks } : p));
+    }
+
+    // DB Update
+    await supabase.from('tasks').update({ progress: newProgress }).eq('id', taskId);
+    
+    // Log
+    logAction('task_update', `Updated progress of task "${task.name}" to ${newProgress}%`);
+  };
+
 
   const handleSaveModalResult = async (taskData: Omit<Task, 'id'> & { id?: string }) => {
     let isUpdate = !!taskData.id;
@@ -844,11 +862,15 @@ export default function App() {
         userName={session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0]}
       />
 
-      {/* Task Details Display Modal (Read-Only) */}
+      {/* Task Details Display Modal (Read-Only + Progress Update) */}
       <TaskDetailsModal
         isOpen={isTaskDetailsOpen}
         onClose={() => setIsTaskDetailsOpen(false)}
         task={taskToEdit}
+        currentUser={currentUser}
+        userEmail={session?.user?.email}
+        userName={session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0]}
+        onUpdateProgress={handleUpdateTaskProgress}
       />
 
       {/* Personnel Management Modal */}

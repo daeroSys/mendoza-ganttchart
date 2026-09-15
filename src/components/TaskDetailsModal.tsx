@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Calendar, AlignLeft, LayoutList } from 'lucide-react';
 import { Task } from '../types';
@@ -7,10 +7,37 @@ interface TaskDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   task: Task | null;
+  currentUser?: string | null;
+  userEmail?: string | null;
+  userName?: string | null;
+  onUpdateProgress?: (taskId: string, progress: number) => void;
 }
 
-export default function TaskDetailsModal({ isOpen, onClose, task }: TaskDetailsModalProps) {
+export default function TaskDetailsModal({ 
+  isOpen, 
+  onClose, 
+  task,
+  currentUser,
+  userEmail,
+  userName,
+  onUpdateProgress
+}: TaskDetailsModalProps) {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    if (task) {
+      setProgress(task.progress || 0);
+    }
+  }, [task, isOpen]);
+
   if (!isOpen || !task) return null;
+
+  const isAssigned = task.assignee.some(a => {
+    const aLower = a.toLowerCase();
+    return (currentUser && aLower === currentUser.toLowerCase()) || 
+           (userEmail && aLower === userEmail.toLowerCase()) ||
+           (userName && aLower === userName.toLowerCase());
+  });
 
   // Format date helper
   const formatDate = (dateString: string) => {
@@ -99,14 +126,43 @@ export default function TaskDetailsModal({ isOpen, onClose, task }: TaskDetailsM
 
           </div>
 
+          {/* Progress Section (If Assigned) */}
+          {isAssigned && (
+            <div className="p-6 border-t border-slate-100 dark:border-slate-800/85 bg-slate-50/50 dark:bg-slate-900/50">
+              <label className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase flex justify-between mb-3">
+                <span>Update Progress</span>
+                <span className="text-indigo-600 dark:text-indigo-400">{progress}%</span>
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={progress}
+                onChange={e => setProgress(Number(e.target.value))}
+                className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600 dark:accent-indigo-500"
+              />
+            </div>
+          )}
+
           {/* Footer */}
-          <div className="p-6 border-t border-slate-100 dark:border-slate-800/85 flex justify-end">
+          <div className="p-6 border-t border-slate-100 dark:border-slate-800/85 flex justify-end gap-3">
             <button
               onClick={onClose}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-colors cursor-pointer"
+              className="px-5 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-sm rounded-xl transition-colors cursor-pointer"
             >
               Close
             </button>
+            {isAssigned && progress !== task.progress && (
+              <button
+                onClick={() => {
+                  onUpdateProgress?.(task.id, progress);
+                  onClose();
+                }}
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-colors cursor-pointer shadow-md shadow-indigo-200 dark:shadow-none"
+              >
+                Save Progress
+              </button>
+            )}
           </div>
         </motion.div>
       </div>
