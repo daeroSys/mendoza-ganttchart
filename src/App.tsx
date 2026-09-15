@@ -610,8 +610,10 @@ export default function App() {
     
     Object.entries(assigneesMap).forEach(([assigneeName, usersSelectedTasks]) => {
       const profile = profiles.find(p => {
-         const firstName = p.full_name ? p.full_name.split(' ')[0] : p.email.split('@')[0];
-         return firstName.toLowerCase() === assigneeName.toLowerCase();
+         const fullNameMatch = p.full_name?.toLowerCase() === assigneeName.toLowerCase();
+         const emailMatch = p.email.toLowerCase() === assigneeName.toLowerCase();
+         const emailPrefixMatch = p.email.split('@')[0].toLowerCase() === assigneeName.toLowerCase();
+         return fullNameMatch || emailMatch || emailPrefixMatch;
       });
       
       if (profile) {
