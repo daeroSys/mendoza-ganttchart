@@ -98,6 +98,9 @@ export default function App() {
   const [staticGanttImage, setStaticGanttImage] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
+  // Diagram View Toggle
+  const [isDiagramView, setIsDiagramView] = useState(false);
+
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
 
   // Trigger identity prompt
@@ -749,7 +752,8 @@ export default function App() {
         onOpenExport={() => setIsExportOpen(true)}
         darkMode={darkMode}
         setDarkMode={setDarkMode}
-        onScrollToToday={handleScrollToToday}
+        isDiagramView={isDiagramView}
+        onToggleView={() => setIsDiagramView(!isDiagramView)}
         title={activeProject?.name || 'Project Gantt Chart'}
         subtitle={activeProject?.tag || "Visualize, orchestrate, and trace project milestones and tasks interactively."}
         logoUrl={activeProject?.logoUrl || (activeProjectId ? projectLogos[activeProjectId] : undefined)}
@@ -773,7 +777,7 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-6 mt-6 flex flex-col gap-6" id="dashboard-main-view">
         
         {/* KPI Stats Cards Strip */}
-        {!isViewerMode && (
+        {!isViewerMode && !isDiagramView && (
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="kpi-dashboard-grid">
           
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl flex items-center gap-4 shadow-2xs">
@@ -827,8 +831,9 @@ export default function App() {
         )}
 
         {/* Primary Timeline Section Dashboard Canvas */}
-        {isViewerMode ? (
-          <section className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4 sm:p-6 rounded-3xl shadow-sm overflow-hidden flex items-center justify-center min-h-[300px]" id="gantt-chart-static-section">
+        {!isDiagramView && (
+          isViewerMode ? (
+            <section className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4 sm:p-6 rounded-3xl shadow-sm overflow-hidden flex items-center justify-center min-h-[300px]" id="gantt-chart-static-section">
             {isGeneratingImage ? (
               <div className="flex flex-col items-center gap-3">
                 <div className="w-8 h-8 border-4 border-indigo-200 dark:border-indigo-900/50 border-t-indigo-600 dark:border-t-indigo-500 rounded-full animate-spin" />
@@ -895,16 +900,18 @@ export default function App() {
               onReorderTasks={handleReorderTasks}
             />
           </section>
-        )}
+        ))}
 
         {/* Project Architecture & Design Diagrams Hub */}
-        <DiagramsHub
-          diagrams={activeProject?.diagrams || []}
-          onUpdateDiagrams={handleUpdateDiagrams}
-          restrictedMode={restrictedMode}
-          isViewerMode={isViewerMode}
-          isOwner={isGlobalOwner}
-        />
+        {isDiagramView && (
+          <DiagramsHub
+            diagrams={activeProject?.diagrams || []}
+            onUpdateDiagrams={handleUpdateDiagrams}
+            restrictedMode={restrictedMode}
+            isViewerMode={isViewerMode}
+            isOwner={isGlobalOwner}
+          />
+        )}
 
       </main>
 

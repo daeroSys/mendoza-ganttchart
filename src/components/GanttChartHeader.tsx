@@ -37,7 +37,8 @@ interface GanttChartHeaderProps {
   onOpenExport: () => void;
   darkMode: boolean;
   setDarkMode: (dark: boolean) => void;
-  onScrollToToday: () => void;
+  isDiagramView?: boolean;
+  onToggleView: () => void;
   title?: string;
   subtitle?: string;
   logoUrl?: string;
@@ -68,7 +69,8 @@ export default function GanttChartHeader({
   onOpenExport,
   darkMode,
   setDarkMode,
-  onScrollToToday,
+  isDiagramView = false,
+  onToggleView,
   title = 'Project Gantt Chart Planner',
   subtitle = 'Centralized Infrastructure, Decentralized Access',
   logoUrl,
@@ -221,16 +223,25 @@ export default function GanttChartHeader({
           </div>
         </div>
 
-        {/* Action Controls Group: Today, Importer, Exporters, Theme Toggle, Add Task */}
+        {/* Action Controls Group: View Toggle, Importer, Exporters, Theme Toggle, Add Task */}
         <div className="flex flex-wrap items-center gap-2.5" id="header-action-row">
           <button
-            onClick={onScrollToToday}
+            onClick={onToggleView}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 shadow-xs cursor-pointer select-none transition-colors"
-            title="Focus the timeline on today"
-            id="btn-today-shortcut"
+            title={isDiagramView ? "View Gantt Chart" : "View Diagram"}
+            id="btn-toggle-view"
           >
-            <Calendar className="w-4 h-4" />
-            <span>Today</span>
+            {isDiagramView ? (
+              <>
+                <Calendar className="w-4 h-4" />
+                <span>Gantt Chart</span>
+              </>
+            ) : (
+              <>
+                <Image className="w-4 h-4" />
+                <span>Diagram</span>
+              </>
+            )}
           </button>
 
 
@@ -357,7 +368,7 @@ export default function GanttChartHeader({
       </div>
 
       {/* Grid Filter Bar: Search, Filters, and Zoom Tabs */}
-      {!isViewerMode && (
+      {!isViewerMode && !isDiagramView && (
         <div className="flex flex-col gap-4 mt-6 xl:flex-row xl:items-center xl:justify-between bg-slate-50 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/60" id="filter-wrapper-bar">
 
           {/* Dynamic Filters Area */}

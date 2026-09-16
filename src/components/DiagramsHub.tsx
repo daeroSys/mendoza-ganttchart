@@ -260,88 +260,14 @@ export default function DiagramsHub({
 
           {/* Active diagram layout card */}
           {activeDiagram && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start" id="diagram-view-workspace">
-              {/* Meta Info details & actions */}
-              <div className="lg:col-span-4 flex flex-col gap-4">
-                <div className="bg-slate-50/50 dark:bg-slate-950/20 border border-slate-100 dark:border-slate-800/80 rounded-2xl p-5 flex flex-col gap-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <h4 className="font-extrabold text-slate-800 dark:text-slate-200 font-sans text-sm">
-                      {activeDiagram.title}
-                    </h4>
-                    
-                    {/* Owner controls: Edit details, Remove Image, Delete Tab */}
-                    {!restrictedMode && isOwner !== false && (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={() => handleOpenEdit(activeDiagram)}
-                          className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-355 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer transition-colors"
-                          title="Edit Title/Description"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        {hasAttachment && (
-                          <button
-                            onClick={handleRemoveAttachment}
-                            className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 rounded-lg cursor-pointer transition-colors"
-                            title="Remove/Detach Diagram"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDelete(activeDiagram.id, activeDiagram.title)}
-                          className="p-1.5 text-slate-400 dark:text-slate-550 hover:text-rose-600 dark:hover:text-rose-450 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg cursor-pointer transition-colors"
-                          title="Delete Diagram Tab"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {activeDiagram.description ? (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-sans">
-                      {activeDiagram.description}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-slate-400 dark:text-slate-500 italic font-sans">
-                      No description provided for this design layout.
-                    </p>
-                  )}
-
-                  {activeDiagram.imageUrl && activeDiagram.type !== 'mermaid' && (
-                    <div className="pt-3 border-t border-slate-100 dark:border-slate-850 flex items-center gap-1.5">
-                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Source:</span>
-                      {activeDiagram.imageUrl.startsWith('data:') ? (
-                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-450">Attached File</span>
-                      ) : (
-                        <a
-                          href={activeDiagram.imageUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-0.5"
-                        >
-                          <span>Open Image Link</span>
-                          <ExternalLink className="w-2.5 h-2.5" />
-                        </a>
-                      )}
-                    </div>
-                  )}
-                  {activeDiagram.type === 'mermaid' && (
-                    <div className="pt-3 border-t border-slate-100 dark:border-slate-850 flex items-center gap-1.5">
-                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Type:</span>
-                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-450">Mermaid Diagram</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
+            <div className="flex flex-col gap-5" id="diagram-view-workspace">
               {/* Graphic Display Panel (Image view, Mermaid view, or Attachment Box) */}
-              <div className="lg:col-span-8 flex flex-col gap-3">
+              <div className="flex flex-col gap-3">
                 
-                {/* Mode toggle (Code / Preview) for Mermaid diagrams */}
-                {activeDiagram.type === 'mermaid' && (
-                  <div className="flex items-center justify-between">
+                {/* Toolbar row: Code/Preview toggle + action icons */}
+                <div className="flex items-center justify-between">
+                  {/* Left: Code/Preview tabs (mermaid only) */}
+                  {activeDiagram.type === 'mermaid' ? (
                     <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
                       <button
                         onClick={() => setViewMode('code')}
@@ -366,19 +292,51 @@ export default function DiagramsHub({
                         Preview
                       </button>
                     </div>
+                  ) : (
+                    <div /> 
+                  )}
 
-                    {viewMode === 'code' && (!restrictedMode && isOwner !== false) && tempMermaidCode !== activeDiagram.mermaidCode && (
-                       <button
-                         onClick={handleSaveMermaid}
-                         className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors cursor-pointer"
-                       >
-                         Save Code
-                       </button>
+                  {/* Right: Save Code + action icons */}
+                  <div className="flex items-center gap-1.5">
+                    {viewMode === 'code' && activeDiagram.type === 'mermaid' && (!restrictedMode && isOwner !== false) && tempMermaidCode !== activeDiagram.mermaidCode && (
+                      <button
+                        onClick={handleSaveMermaid}
+                        className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors cursor-pointer"
+                      >
+                        Save Code
+                      </button>
+                    )}
+                    {!restrictedMode && isOwner !== false && (
+                      <>
+                        <button
+                          onClick={() => handleOpenEdit(activeDiagram)}
+                          className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer transition-colors"
+                          title="Edit Title/Description"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        {hasAttachment && (
+                          <button
+                            onClick={handleRemoveAttachment}
+                            className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 rounded-lg cursor-pointer transition-colors"
+                            title="Remove/Detach Diagram"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDelete(activeDiagram.id, activeDiagram.title)}
+                          className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg cursor-pointer transition-colors"
+                          title="Delete Diagram Tab"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </>
                     )}
                   </div>
-                )}
+                </div>
 
-                <div className={`border rounded-2xl overflow-hidden relative flex items-center justify-center min-h-[300px] sm:min-h-[400px] ${
+                <div className={`border rounded-2xl overflow-hidden relative flex items-center justify-center min-h-[520px] sm:min-h-[680px] ${
                   activeDiagram.type === 'mermaid' && viewMode === 'preview'
                     ? 'bg-[#0d1117] border-slate-700'
                     : 'border-slate-200 dark:border-slate-800 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px]'

@@ -86,11 +86,74 @@ export default function MermaidDiagram({ chart }: MermaidDiagramProps) {
           if (isMounted) {
             // Strip any hardcoded background fill from the SVG root so our
             // container background shows through cleanly.
-            const cleaned = svg
+            let cleaned = svg
               .replace(/background:\s*[^;"]+;?\s*/gi, '')
               .replace(/<rect[^>]*class="[^"]*background[^"]*"[^>]*>/gi, (match) =>
                 match.replace(/fill="[^"]*"/, 'fill="transparent"')
               );
+
+            // Fix text color for nodes that have a white/light background
+            try {
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(cleaned, "image/svg+xml");
+              
+              const isWhiteFill = (fill: string | null) => {
+                if (!fill) return false;
+                const f = fill.toLowerCase().replace(/\s/g, '');
+                return f === '#fff' || f === '#ffffff' || f === 'white' || f === 'rgb(255,255,255)' || f === 'rgba(255,255,255,1)';
+              };
+              
+              // Identify classes that have a white fill
+              const styleBlocks = doc.querySelectorAll('style');
+              const whiteClasses = new Set<string>();
+              styleBlocks.forEach(styleBlock => {
+                const cssText = styleBlock.textContent || '';
+                const regex = /\.([a-zA-Z0-9_-]+)\s*\{[^}]*fill:\s*([^;!}]+)[^}]*\}/gi;
+                let match;
+                while ((match = regex.exec(cssText)) !== null) {
+                  if (isWhiteFill(match[2])) {
+                    whiteClasses.add(match[1]);
+                  }
+                }
+              });
+
+              // Find all shapes and check their fill
+              const shapes = doc.querySelectorAll('rect, circle, ellipse, polygon, path, use');
+              shapes.forEach(shape => {
+                let hasWhiteBg = false;
+                
+                if (isWhiteFill(shape.getAttribute('fill'))) hasWhiteBg = true;
+                
+                const styleAttr = shape.getAttribute('style') || '';
+                const styleFillMatch = styleAttr.match(/fill:\s*([^;!]+)/i);
+                if (styleFillMatch && isWhiteFill(styleFillMatch[1])) hasWhiteBg = true;
+                
+                shape.classList.forEach(cls => {
+                  if (whiteClasses.has(cls)) hasWhiteBg = true;
+                });
+                
+                if (hasWhiteBg && shape.parentElement) {
+                  const texts = shape.parentElement.querySelectorAll('text, span, div, p, foreignObject');
+                  texts.forEach(t => {
+                    const currentStyle = t.getAttribute('style') || '';
+                    t.setAttribute('style', currentStyle + ' color: #0f172a !important; fill: #0f172a !important;');
+                    
+                    if (t.tagName.toLowerCase() === 'foreignobject') {
+                       const innerElements = t.querySelectorAll('div, span, p, text');
+                       innerElements.forEach(inner => {
+                          const innerStyle = inner.getAttribute('style') || '';
+                          inner.setAttribute('style', innerStyle + ' color: #0f172a !important; fill: #0f172a !important;');
+                       });
+                    }
+                  });
+                }
+              });
+              
+              cleaned = new XMLSerializer().serializeToString(doc);
+            } catch (e) {
+              console.warn("Failed to parse SVG for text color correction", e);
+            }
+
             setSvgContent(cleaned);
           }
         } else {
@@ -122,7 +185,7 @@ export default function MermaidDiagram({ chart }: MermaidDiagramProps) {
   }
 
   return (
-    <div className="w-full h-full min-h-[400px] relative group bg-transparent rounded-xl flex flex-col">
+    <div className="w-full h-full min-h-[680px] relative group bg-transparent rounded-xl flex flex-col">
       <TransformWrapper
         initialScale={1}
         minScale={0.05}
@@ -148,7 +211,7 @@ export default function MermaidDiagram({ chart }: MermaidDiagramProps) {
             </div>
 
             <TransformComponent
-              wrapperStyle={{ width: '100%', minHeight: '400px', overflow: 'visible' }}
+              wrapperStyle={{ width: '100%', minHeight: '680px', overflow: 'visible' }}
               contentStyle={{ padding: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
               <div
