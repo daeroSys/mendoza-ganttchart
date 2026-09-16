@@ -69,6 +69,7 @@ export default function App() {
     search: '',
     priority: 'All',
     assignee: 'All',
+    roles: [],
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isTaskDetailsOpen, setIsTaskDetailsOpen] = useState(false);
@@ -247,6 +248,14 @@ export default function App() {
     logAction('personnel_update', 'updated project personnel list');
   };
 
+  const handleUpdateRoles = async (newRoles: Record<string, string[]>, newAvailableRoles: string[]) => {
+    if (!activeProjectId || !activeProject) return;
+    const updatedProject = { ...activeProject, roles: newRoles, availableRoles: newAvailableRoles };
+    setProjects(prev => prev.map(p => p.id === activeProjectId ? updatedProject : p));
+    await supabase.from('projects').update({ roles: newRoles, available_roles: newAvailableRoles }).eq('id', activeProjectId);
+    logAction('project_update', 'updated project roles');
+  };
+
   const handleUpdateDiagrams = async (newDiagrams: ProjectDiagram[], details: string) => {
     if (!activeProjectId || !activeProject) return;
     const updatedProject = { ...activeProject, diagrams: newDiagrams };
@@ -278,9 +287,9 @@ export default function App() {
     window.location.hash = '';
   };
 
-  const handleCreateProject = async (name: string, tag?: string) => {
+  const handleCreateProject = async (name: string, tag?: string, availableRoles?: string[]) => {
     if (!session?.user?.id) return;
-    const newProject = await createProject(name, tag || 'Visualize, orchestrate, and trace project milestones.', session.user.id);
+    const newProject = await createProject(name, tag || 'Visualize, orchestrate, and trace project milestones.', session.user.id, availableRoles);
     if (newProject) {
       setProjects(prev => [...prev, newProject]);
     }
@@ -359,7 +368,15 @@ export default function App() {
                           task.assignee.some(a => a.toLowerCase().includes(filters.search.toLowerCase()));
     const matchesPriority = filters.priority === 'All' || task.priority === filters.priority;
     const matchesAssignee = filters.assignee === 'All' || task.assignee.includes(filters.assignee);
-    return matchesSearch && matchesPriority && matchesAssignee;
+    const matchesRoles = filters.roles && filters.roles.length > 0
+      ? task.assignee.some(a => {
+          const personRoles = Array.isArray(activeProject?.roles?.[a]) 
+            ? activeProject.roles[a] 
+            : (activeProject?.roles?.[a] ? [activeProject.roles[a] as unknown as string] : ['Member']);
+          return personRoles.some(r => filters.roles.includes(r));
+        })
+      : true;
+    return matchesSearch && matchesPriority && matchesAssignee && matchesRoles;
   }).sort((a, b) => {
     if (a.sortOrder !== b.sortOrder) {
       return (a.sortOrder || 0) - (b.sortOrder || 0);
@@ -697,6 +714,7 @@ export default function App() {
         onScrollToToday={handleScrollToToday}
         title={activeProject?.name || 'Project Gantt Chart'}
         subtitle={activeProject?.tag || "Visualize, orchestrate, and trace project milestones and tasks interactively."}
+        availableRoles={activeProject?.availableRoles || []}
         onBack={handleBackToHome}
         onOpenPersonnel={() => setIsPersonnelOpen(true)}
         onShare={handleShareProject}
@@ -858,6 +876,7 @@ export default function App() {
         taskToEdit={taskToEdit}
         allTasks={tasks}
         personnel={personnel}
+        roles={activeProject?.roles || {}}
         restrictedMode={restrictedMode}
         currentUser={currentUser}
         userEmail={session?.user?.email}
@@ -873,6 +892,8 @@ export default function App() {
         userEmail={session?.user?.email}
         userName={session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0]}
         onUpdateProgress={handleUpdateTaskProgress}
+        roles={activeProject?.roles || {}}
+        isOwner={isGlobalOwner}
       />
 
       {/* Personnel Management Modal */}
@@ -881,6 +902,9 @@ export default function App() {
         onClose={() => setIsPersonnelOpen(false)}
         personnel={personnel}
         onUpdatePersonnel={handleUpdatePersonnel}
+        availableRoles={activeProject?.availableRoles || []}
+        roles={activeProject?.roles || {}}
+        onUpdateRoles={handleUpdateRoles}
         taskAssignees={tasks.flatMap(t => t.assignee)}
         projectName={activeProject?.name || 'Project'}
         isOwner={isGlobalOwner}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Calendar, AlignLeft, LayoutList, Users } from 'lucide-react';
 import { Task } from '../types';
@@ -11,6 +11,8 @@ interface TaskDetailsModalProps {
   userEmail?: string | null;
   userName?: string | null;
   onUpdateProgress?: (taskId: string, progress: number) => void;
+  roles?: Record<string, string[]>;
+  isOwner?: boolean;
 }
 
 export default function TaskDetailsModal({ 
@@ -20,9 +22,25 @@ export default function TaskDetailsModal({
   currentUser,
   userEmail,
   userName,
-  onUpdateProgress
+  onUpdateProgress,
+  roles = {},
+  isOwner = false,
 }: TaskDetailsModalProps) {
   const [progress, setProgress] = useState(0);
+  const [hoverPercent, setHoverPercent] = useState<number | null>(null);
+  const sliderRef = useRef<HTMLInputElement>(null);
+
+  const handleSliderMouseMove = (e: React.MouseEvent<HTMLInputElement>) => {
+    if (!sliderRef.current) return;
+    const rect = sliderRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const percent = Math.round((x / rect.width) * 100);
+    setHoverPercent(percent);
+  };
+
+  const handleSliderMouseLeave = () => {
+    setHoverPercent(null);
+  };
 
   useEffect(() => {
     if (task) {
@@ -38,6 +56,8 @@ export default function TaskDetailsModal({
            (userEmail && aLower === userEmail.toLowerCase()) ||
            (userName && aLower === userName.toLowerCase());
   });
+
+  const canEditProgress = isOwner || isAssigned;
 
   // Format date helper
   const formatDate = (dateString: string) => {
@@ -92,7 +112,7 @@ export default function TaskDetailsModal({
           </div>
 
           {/* Body */}
-          <div className="p-6 overflow-y-auto space-y-6">
+          <div className="p-6 overflow-y-auto space-y-6 scrollbar-thin">
             
             {/* Task Name */}
             <div>
@@ -123,8 +143,11 @@ export default function TaskDetailsModal({
                 {task.assignee && task.assignee.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {task.assignee.map((member, index) => (
-                      <span key={index} className="px-2.5 py-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-medium">
+                      <span key={index} className="px-2.5 py-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-medium flex items-center gap-1.5">
                         {member}
+                        {Array.isArray(roles[member]) && roles[member].filter(r => r !== 'Member').map(role => (
+                          <span key={role} className="px-1.5 py-0.5 bg-indigo-200 dark:bg-indigo-800/60 text-indigo-800 dark:text-indigo-200 rounded text-[9px] font-bold uppercase tracking-wider">{role}</span>
+                        ))}
                       </span>
                     ))}
                   </div>
@@ -146,21 +169,43 @@ export default function TaskDetailsModal({
 
           </div>
 
-          {/* Progress Section (If Assigned) */}
-          {isAssigned && (
+          {/* Progress Section (If Assigned or Owner) */}
+          {canEditProgress && (
             <div className="p-6 border-t border-slate-100 dark:border-slate-800/85 bg-slate-50/50 dark:bg-slate-900/50">
               <label className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase flex justify-between mb-3">
                 <span>Update Progress</span>
                 <span className="text-indigo-600 dark:text-indigo-400">{progress}%</span>
               </label>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={progress}
-                onChange={e => setProgress(Number(e.target.value))}
-                className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600 dark:accent-indigo-500"
-              />
+              <div className="relative flex items-center w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg group">
+                <div 
+                  className="absolute left-0 top-0 h-full bg-indigo-600 dark:bg-indigo-500 rounded-lg pointer-events-none" 
+                  style={{ width: `${progress}%` }} 
+                />
+                <div 
+                  className="absolute top-1/2 -mt-2 w-4 h-4 bg-indigo-600 dark:bg-indigo-500 rounded-full shadow-md border-2 border-white dark:border-slate-800 pointer-events-none group-active:scale-125 group-hover:bg-indigo-500 transition-all z-0"
+                  style={{ left: `calc(${progress}% - 8px)` }}
+                />
+                {hoverPercent !== null && (
+                  <div 
+                    className="absolute -top-8 -translate-x-1/2 bg-slate-800 dark:bg-slate-700 text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none z-20 whitespace-nowrap"
+                    style={{ left: `${hoverPercent}%` }}
+                  >
+                    {hoverPercent}%
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-0.5 border-4 border-transparent border-t-slate-800 dark:border-t-slate-700" />
+                  </div>
+                )}
+                <input
+                  ref={sliderRef}
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={progress}
+                  onChange={e => setProgress(Number(e.target.value))}
+                  onMouseMove={handleSliderMouseMove}
+                  onMouseLeave={handleSliderMouseLeave}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                />
+              </div>
             </div>
           )}
 
@@ -172,7 +217,7 @@ export default function TaskDetailsModal({
             >
               Close
             </button>
-            {isAssigned && progress !== task.progress && (
+            {canEditProgress && progress !== task.progress && (
               <button
                 onClick={() => {
                   onUpdateProgress?.(task.id, progress);

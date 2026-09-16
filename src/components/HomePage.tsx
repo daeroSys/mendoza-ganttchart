@@ -26,7 +26,7 @@ import { Project } from '../types';
 interface HomePageProps {
   projects: Project[];
   onSelectProject: (id: string) => void;
-  onCreateProject: (name: string, description?: string) => void;
+  onCreateProject: (name: string, description?: string, availableRoles?: string[]) => void;
   onDeleteProject: (id: string) => void;
   onUpdateProject: (id: string, name: string, tag?: string) => void;
   darkMode: boolean;
@@ -61,6 +61,8 @@ export default function HomePage({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
+  const [newProjectRoles, setNewProjectRoles] = useState<string[]>([]);
+  const [roleInput, setRoleInput] = useState('');
   const [createError, setCreateError] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -108,11 +110,30 @@ export default function HomePage({
       setCreateError('Please enter a project name.');
       return;
     }
-    onCreateProject(trimmed, newProjectDesc.trim() || undefined);
+    onCreateProject(trimmed, newProjectDesc.trim() || undefined, newProjectRoles.length > 0 ? newProjectRoles : ['Developer', 'Designer', 'Researcher', 'Documentation']);
     setNewProjectName('');
     setNewProjectDesc('');
+    setNewProjectRoles([]);
+    setRoleInput('');
     setCreateError('');
     setShowCreateModal(false);
+  };
+
+  const handleRoleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const trimmed = roleInput.trim();
+      if (trimmed && !newProjectRoles.includes(trimmed)) {
+        setNewProjectRoles(prev => [...prev, trimmed]);
+      }
+      setRoleInput('');
+    } else if (e.key === 'Escape') {
+      setShowCreateModal(false);
+    }
+  };
+
+  const removeRole = (roleToRemove: string) => {
+    setNewProjectRoles(prev => prev.filter(r => r !== roleToRemove));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -446,6 +467,34 @@ export default function HomePage({
                     maxLength={120}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800/80 rounded-xl focus:outline-hidden focus:border-indigo-500 text-slate-800 dark:text-slate-100 font-sans transition-all text-sm focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-950"
                     id="input-project-desc"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase mb-2">
+                    Project Roles
+                  </label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {newProjectRoles.map(role => (
+                      <span key={role} className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-medium">
+                        {role}
+                        <button type="button" onClick={() => removeRole(role)} className="hover:text-rose-500 transition-colors cursor-pointer">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    ))}
+                    {newProjectRoles.length === 0 && (
+                      <span className="text-xs text-slate-400 italic py-1">Using default roles if empty.</span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="e.g. Developer (Press Enter to add)"
+                    value={roleInput}
+                    onChange={e => setRoleInput(e.target.value)}
+                    onKeyDown={handleRoleKeyDown}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800/80 rounded-xl focus:outline-hidden focus:border-indigo-500 text-slate-800 dark:text-slate-100 font-sans transition-all text-sm focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-950"
+                    id="input-project-roles"
                   />
                 </div>
               </div>

@@ -3,7 +3,8 @@ import emailjs from '@emailjs/browser';
 export const sendPersonnelInviteEmail = async (
   recipientEmail: string,
   recipientName: string,
-  projectName: string
+  projectName: string,
+  roles: string[] = ['Member']
 ) => {
   // We'll read from Vite's env variables
   const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
@@ -21,6 +22,7 @@ export const sendPersonnelInviteEmail = async (
       to_email: recipientEmail,
       to_name: recipientName,
       project_name: projectName,
+      roles_assigned: roles.join(', '),
     };
 
     const response = await emailjs.send(

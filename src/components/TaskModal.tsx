@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Calendar, User, Clock, AlertTriangle, Link2, Check } from 'lucide-react';
 import { Task, Priority } from '../types';
@@ -20,6 +20,7 @@ interface TaskModalProps {
   currentUser?: string;
   userEmail?: string;
   userName?: string;
+  roles?: Record<string, string[]>;
 }
 
 const COLORS = Object.keys(COLOR_MAP);
@@ -35,6 +36,7 @@ export default function TaskModal({
   currentUser,
   userEmail,
   userName,
+  roles = {},
 }: TaskModalProps) {
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState('2026-05-27');
@@ -47,6 +49,23 @@ export default function TaskModal({
   const [dependencies, setDependencies] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
+  
+  const [hoverPercent, setHoverPercent] = useState<number | null>(null);
+  const sliderRef = useRef<HTMLInputElement>(null);
+
+  const handleSliderMouseMove = (e: React.MouseEvent<HTMLInputElement>) => {
+    if (!sliderRef.current || !canEditProgress) return;
+    const rect = sliderRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const percent = Math.round((x / rect.width) * 100);
+    const step = 5;
+    const snappedPercent = Math.round(percent / step) * step;
+    setHoverPercent(snappedPercent);
+  };
+
+  const handleSliderMouseLeave = () => {
+    setHoverPercent(null);
+  };
 
   // Synchronize state when open & taskToEdit changes
   useEffect(() => {
@@ -298,7 +317,12 @@ export default function TaskModal({
                           } ${restrictedMode ? 'opacity-60' : ''}`} id={`checkbox-assignee-${person}`}>
                             {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
                           </div>
-                          <span className={`text-xs font-semibold text-slate-855 dark:text-slate-200 ${restrictedMode ? 'opacity-60' : ''}`}>👤 {person}</span>
+                          <span className={`text-xs font-semibold flex items-center text-slate-800 dark:text-slate-200 ${restrictedMode ? 'opacity-60' : ''}`}>
+                            👤 {person}
+                            {Array.isArray(roles[person]) && roles[person].filter(r => r !== 'Member').map(role => (
+                              <span key={role} className="ml-1.5 px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-md text-[9px] font-bold uppercase tracking-wider leading-none">{role}</span>
+                            ))}
+                          </span>
                         </div>
                       );
                     })}
@@ -345,17 +369,39 @@ export default function TaskModal({
                 <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">{progress}%</span>
               </div>
               <div className="flex items-center gap-3">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="5"
-                  value={progress}
-                  disabled={!canEditProgress}
-                  onChange={e => setProgress(Number(e.target.value))}
-                  className={`w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none accent-indigo-600 ${canEditProgress ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
-                  id="input-progress-slider"
-                />
+                <div className={`relative flex items-center w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg group ${!canEditProgress ? 'opacity-60' : ''}`}>
+                  <div 
+                    className="absolute left-0 top-0 h-full bg-indigo-600 dark:bg-indigo-500 rounded-lg pointer-events-none" 
+                    style={{ width: `${progress}%` }} 
+                  />
+                  <div 
+                    className={`absolute top-1/2 -mt-2 w-4 h-4 bg-indigo-600 dark:bg-indigo-500 rounded-full shadow-md border-2 border-white dark:border-slate-900 pointer-events-none transition-all z-0 ${canEditProgress ? 'group-active:scale-125 group-hover:bg-indigo-500' : ''}`}
+                    style={{ left: `calc(${progress}% - 8px)` }}
+                  />
+                  {hoverPercent !== null && canEditProgress && (
+                    <div 
+                      className="absolute -top-8 -translate-x-1/2 bg-slate-800 dark:bg-slate-700 text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none z-20 whitespace-nowrap"
+                      style={{ left: `${hoverPercent}%` }}
+                    >
+                      {hoverPercent}%
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-0.5 border-4 border-transparent border-t-slate-800 dark:border-t-slate-700" />
+                    </div>
+                  )}
+                  <input
+                    ref={sliderRef}
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={progress}
+                    disabled={!canEditProgress}
+                    onChange={e => setProgress(Number(e.target.value))}
+                    onMouseMove={handleSliderMouseMove}
+                    onMouseLeave={handleSliderMouseLeave}
+                    className={`absolute inset-0 w-full h-full opacity-0 z-10 ${canEditProgress ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+                    id="input-progress-slider"
+                  />
+                </div>
               </div>
             </div>
 

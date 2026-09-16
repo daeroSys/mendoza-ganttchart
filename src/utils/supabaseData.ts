@@ -54,6 +54,8 @@ export const fetchAllProjects = async (): Promise<Project[]> => {
     tag: p.tag,
     tasks: [],
     personnel: p.personnel || [], // Assuming we add personnel column later
+    availableRoles: p.available_roles || [],
+    roles: p.roles || {},
     logs: [],
     diagrams: [],
     shareToken: p.share_token,
@@ -83,6 +85,8 @@ export const fetchProjectDetails = async (projectId: string): Promise<Project | 
     createdAt: projRes.data.created_at,
     tag: projRes.data.tag,
     personnel: projRes.data.personnel || [],
+    availableRoles: projRes.data.available_roles || [],
+    roles: projRes.data.roles || {},
     shareToken: projRes.data.share_token,
     collaborators: projRes.data.collaborators || [],
     tasks: (tasksRes.data || []).map(mapDbTask),
@@ -109,11 +113,13 @@ export const fetchProjectDetails = async (projectId: string): Promise<Project | 
   };
 };
 
-export const createProject = async (name: string, tag: string, ownerId: string): Promise<Project | null> => {
+export const createProject = async (name: string, tag: string, ownerId: string, availableRoles: string[] = []): Promise<Project | null> => {
   const { data, error } = await supabase.from('projects').insert([{
     name,
     tag,
-    owner_id: ownerId
+    owner_id: ownerId,
+    available_roles: availableRoles,
+    roles: {}
   }]).select().single();
 
   if (error) {
@@ -154,6 +160,8 @@ export const createProject = async (name: string, tag: string, ownerId: string):
     tag: data.tag,
     tasks: [],
     personnel: [],
+    availableRoles: data.available_roles || [],
+    roles: data.roles || {},
     shareToken: data.share_token,
     collaborators: data.collaborators || [],
     logs: [],

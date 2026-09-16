@@ -23,6 +23,14 @@ html.dark, html.dark body {
 
 
 /* Custom Scrollbar Polish */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+.dark .scrollbar-thin {
+  scrollbar-color: #475569 transparent;
+}
+
 .scrollbar-thin::-webkit-scrollbar {
   height: 6px;
   width: 6px;

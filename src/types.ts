@@ -40,6 +40,8 @@ export interface Project {
   createdAt: string;
   tasks: Task[];
   personnel: string[];
+  availableRoles?: string[];
+  roles?: Record<string, string[]>;
   tag?: string;
   logs?: ActivityLog[];
   diagrams?: ProjectDiagram[];
@@ -53,6 +55,7 @@ export interface FilterOptions {
   search: string;
   priority: Priority | 'All';
   assignee: string | 'All';
+  roles: string[];
 }
 
 export interface DragState {

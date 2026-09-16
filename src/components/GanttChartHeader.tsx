@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Plus,
   Sun,
@@ -21,7 +21,9 @@ import {
   LogOut,
   Bell,
   Send,
+  Check,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { ZoomLevel, FilterOptions, Priority } from '../types';
 
 interface GanttChartHeaderProps {
@@ -30,6 +32,7 @@ interface GanttChartHeaderProps {
   filters: FilterOptions;
   setFilters: React.Dispatch<React.SetStateAction<FilterOptions>>;
   assignees: string[];
+  availableRoles?: string[];
   onAddTask: () => void;
   onOpenExport: () => void;
   darkMode: boolean;
@@ -58,6 +61,7 @@ export default function GanttChartHeader({
   filters,
   setFilters,
   assignees,
+  availableRoles = [],
   onAddTask,
   onOpenExport,
   darkMode,
@@ -80,6 +84,19 @@ export default function GanttChartHeader({
   isOwner = true,
 }: GanttChartHeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isRolesDropdownOpen, setIsRolesDropdownOpen] = useState(false);
+  const [isPriorityDropdownOpen, setIsPriorityDropdownOpen] = useState(false);
+  const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
+
+  const toggleRoleFilter = (role: string) => {
+    setFilters(prev => {
+      const current = prev.roles || [];
+      if (current.includes(role)) {
+        return { ...prev, roles: current.filter(r => r !== role) };
+      }
+      return { ...prev, roles: [...current, role] };
+    });
+  };
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setFilters(prev => ({ ...prev, search: event.target.value }));
@@ -98,10 +115,11 @@ export default function GanttChartHeader({
       search: '',
       priority: 'All',
       assignee: 'All',
+      roles: [],
     });
   };
 
-  const isFilterActive = filters.search !== '' || filters.priority !== 'All' || filters.assignee !== 'All';
+  const isFilterActive = filters.search !== '' || filters.priority !== 'All' || filters.assignee !== 'All' || (filters.roles && filters.roles.length > 0);
 
   return (
     <header className="p-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 transition-colors duration-200" id="gantt-header">
@@ -285,41 +303,174 @@ export default function GanttChartHeader({
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            {/* Filter Priority Dropdown */}
-            <div className="relative flex-1 sm:flex-initial min-w-[120px]" id="priority-dropdown-container">
-              <select
-                value={filters.priority}
-                onChange={handlePriorityChange}
-                className="w-full pl-3.5 pr-8 py-1.5 text-sm appearance-none bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-sans text-slate-700 dark:text-slate-200 focus:outline-hidden focus:border-indigo-500 cursor-pointer shadow-2xs transition-colors"
+          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            {/* Filter Priority Custom Dropdown */}
+            <div className="relative flex-1 sm:flex-initial min-w-[140px]" id="priority-dropdown-container">
+              <button
+                type="button"
+                onClick={() => { setIsPriorityDropdownOpen(!isPriorityDropdownOpen); setIsAssigneeDropdownOpen(false); setIsRolesDropdownOpen(false); }}
+                className={`w-full pl-3.5 pr-8 py-1.5 text-sm bg-white dark:bg-slate-900 border ${isPriorityDropdownOpen ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-slate-800'} rounded-xl font-sans text-slate-700 dark:text-slate-200 cursor-pointer shadow-2xs transition-all text-left flex items-center justify-between`}
               >
-                <option value="All">All Priorities</option>
-                <option value="High">🔴 High</option>
-                <option value="Medium">🟡 Medium</option>
-                <option value="Low">🟢 Low</option>
-              </select>
+                <span className="truncate">
+                  {filters.priority === 'All' ? 'All Priorities' : (
+                    <span className="flex items-center gap-1.5">
+                      {filters.priority === 'High' && '🔴'}
+                      {filters.priority === 'Medium' && '🟡'}
+                      {filters.priority === 'Low' && '🟢'}
+                      {filters.priority}
+                    </span>
+                  )}
+                </span>
+              </button>
               <div className="absolute top-[34%] right-3 pointer-events-none text-slate-400">
                 <SlidersHorizontal className="w-3.5 h-3.5" />
               </div>
+
+              <AnimatePresence>
+                {isPriorityDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsPriorityDropdownOpen(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute top-full mt-2 left-0 w-48 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/60 rounded-xl shadow-xl z-50 p-1.5 flex flex-col gap-0.5 overflow-hidden"
+                    >
+                      {[
+                        { value: 'All', label: 'All Priorities' },
+                        { value: 'High', label: '🔴 High' },
+                        { value: 'Medium', label: '🟡 Medium' },
+                        { value: 'Low', label: '🟢 Low' },
+                      ].map(option => (
+                        <button
+                          key={option.value}
+                          onClick={() => {
+                            setFilters(prev => ({ ...prev, priority: option.value as Priority | 'All' }));
+                            setIsPriorityDropdownOpen(false);
+                          }}
+                          className={`flex items-center justify-between w-full text-left px-2.5 py-2 text-sm rounded-lg transition-colors ${filters.priority === option.value ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+                        >
+                          {option.label}
+                          {filters.priority === option.value && <Check className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />}
+                        </button>
+                      ))}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Filter Assignee Dropdown */}
-            <div className="relative flex-1 sm:flex-initial min-w-[140px]" id="assignee-dropdown-container">
-              <select
-                value={filters.assignee}
-                onChange={handleAssigneeChange}
-                className="w-full pl-3.5 pr-8 py-1.5 text-sm appearance-none bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-sans text-slate-700 dark:text-slate-200 focus:outline-hidden focus:border-indigo-500 cursor-pointer shadow-2xs transition-colors"
+            {/* Filter Assignee Custom Dropdown */}
+            <div className="relative flex-1 sm:flex-initial min-w-[160px]" id="assignee-dropdown-container">
+              <button
+                type="button"
+                onClick={() => { setIsAssigneeDropdownOpen(!isAssigneeDropdownOpen); setIsPriorityDropdownOpen(false); setIsRolesDropdownOpen(false); }}
+                className={`w-full pl-3.5 pr-8 py-1.5 text-sm bg-white dark:bg-slate-900 border ${isAssigneeDropdownOpen ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-slate-800'} rounded-xl font-sans text-slate-700 dark:text-slate-200 cursor-pointer shadow-2xs transition-all text-left flex items-center justify-between`}
               >
-                <option value="All">All Collaborators</option>
-                {assignees.map(assignee => (
-                  <option key={assignee} value={assignee}>
-                    👤 {assignee}
-                  </option>
-                ))}
-              </select>
+                <span className="truncate">
+                  {filters.assignee === 'All' ? 'All Collaborators' : `👤 ${filters.assignee}`}
+                </span>
+              </button>
               <div className="absolute top-[34%] right-3 pointer-events-none text-slate-400">
                 <SlidersHorizontal className="w-3.5 h-3.5" />
               </div>
+
+              <AnimatePresence>
+                {isAssigneeDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsAssigneeDropdownOpen(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute top-full mt-2 left-0 w-56 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/60 rounded-xl shadow-xl z-50 p-1.5 flex flex-col gap-0.5 max-h-72 overflow-y-auto scrollbar-thin"
+                    >
+                      <button
+                        onClick={() => {
+                          setFilters(prev => ({ ...prev, assignee: 'All' }));
+                          setIsAssigneeDropdownOpen(false);
+                        }}
+                        className={`flex items-center justify-between w-full text-left px-2.5 py-2 text-sm rounded-lg transition-colors ${filters.assignee === 'All' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+                      >
+                        All Collaborators
+                        {filters.assignee === 'All' && <Check className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />}
+                      </button>
+                      
+                      {assignees.length > 0 && <div className="h-px bg-slate-100 dark:bg-slate-700/50 my-1 mx-1" />}
+                      
+                      {assignees.map(assignee => (
+                        <button
+                          key={assignee}
+                          onClick={() => {
+                            setFilters(prev => ({ ...prev, assignee }));
+                            setIsAssigneeDropdownOpen(false);
+                          }}
+                          className={`flex items-center justify-between w-full text-left px-2.5 py-2 text-sm rounded-lg transition-colors ${filters.assignee === assignee ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+                        >
+                          <span className="truncate">👤 {assignee}</span>
+                          {filters.assignee === assignee && <Check className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />}
+                        </button>
+                      ))}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Filter Roles Custom Dropdown */}
+            <div className="relative flex-1 sm:flex-initial min-w-[140px]" id="roles-dropdown-container">
+              <button
+                type="button"
+                onClick={() => { setIsRolesDropdownOpen(!isRolesDropdownOpen); setIsAssigneeDropdownOpen(false); setIsPriorityDropdownOpen(false); }}
+                className={`w-full pl-3.5 pr-8 py-1.5 text-sm bg-white dark:bg-slate-900 border ${isRolesDropdownOpen ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-slate-800'} rounded-xl font-sans text-slate-700 dark:text-slate-200 cursor-pointer shadow-2xs transition-all text-left flex items-center justify-between`}
+              >
+                <span className="truncate">
+                  {filters.roles && filters.roles.length > 0 
+                    ? `${filters.roles.length} Role${filters.roles.length > 1 ? 's' : ''}` 
+                    : 'All Roles'}
+                </span>
+              </button>
+              <div className="absolute top-[34%] right-3 pointer-events-none text-slate-400">
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+              </div>
+
+              <AnimatePresence>
+                {isRolesDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsRolesDropdownOpen(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute top-full mt-2 left-0 w-52 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/60 rounded-xl shadow-xl z-50 p-1.5 flex flex-col gap-0.5 max-h-72 overflow-y-auto scrollbar-thin"
+                    >
+                      {availableRoles.map(role => {
+                        const isSelected = (filters.roles || []).includes(role);
+                        return (
+                          <label key={role} className={`flex items-center gap-2.5 px-2.5 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg cursor-pointer transition-colors text-sm ${isSelected ? 'text-indigo-700 dark:text-indigo-300 font-semibold bg-indigo-50/50 dark:bg-indigo-500/5' : 'text-slate-700 dark:text-slate-200'}`}>
+                            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300 dark:border-slate-600'}`}>
+                              {isSelected && <Check className="w-3 h-3 text-white stroke-[3]" />}
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleRoleFilter(role)}
+                              className="hidden"
+                            />
+                            <span className="truncate">{role}</span>
+                          </label>
+                        );
+                      })}
+                      {availableRoles.length === 0 && (
+                        <p className="text-xs text-slate-400 text-center py-4">No roles available</p>
+                      )}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Reset Filters Shortcut */}

@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, UserPlus, Trash2, Users, AlertTriangle, Loader2 } from 'lucide-react';
+import { X, UserPlus, Trash2, Users, AlertTriangle, Loader2, Plus, ChevronDown } from 'lucide-react';
 import { fetchAllProfiles } from '../utils/supabaseData';
 import { sendPersonnelInviteEmail } from '../utils/emailService';
 
@@ -14,6 +14,9 @@ interface PersonnelModalProps {
   onClose: () => void;
   personnel: string[];
   onUpdatePersonnel: (personnel: string[]) => void;
+  availableRoles: string[];
+  roles: Record<string, string[]>;
+  onUpdateRoles: (newRoles: Record<string, string[]>, newAvailableRoles: string[]) => void;
   taskAssignees: string[]; // currently assigned people in tasks
   projectName: string;
   isOwner?: boolean;
@@ -24,6 +27,9 @@ export default function PersonnelModal({
   onClose,
   personnel,
   onUpdatePersonnel,
+  availableRoles,
+  roles,
+  onUpdateRoles,
   taskAssignees,
   projectName,
   isOwner = true,
@@ -31,6 +37,19 @@ export default function PersonnelModal({
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<{id: string, email: string, full_name: string}[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
+  const [openDropdownPerson, setOpenDropdownPerson] = useState<string | null>(null);
+  const [dropdownCoords, setDropdownCoords] = useState<{top: number, right: number} | null>(null);
+  const [newlyAdded, setNewlyAdded] = useState<{email: string, displayName: string}[]>([]);
+  const [isSendingEmails, setIsSendingEmails] = useState(false);
+
+  useEffect(() => {
+    if (!openDropdownPerson) return;
+    const handleScroll = () => {
+      setOpenDropdownPerson(null);
+    };
+    window.addEventListener('scroll', handleScroll, true);
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, [openDropdownPerson]);
 
   useEffect(() => {
     if (isOpen) {
@@ -51,14 +70,29 @@ export default function PersonnelModal({
     
     // Immediately update UI
     onUpdatePersonnel([...personnel, user.displayName]);
+    setNewlyAdded(prev => [...prev, { email: user.email, displayName: user.displayName }]);
+  };
 
-    // Send the email in the background
-    try {
-      await sendPersonnelInviteEmail(user.email, user.displayName, projectName);
-    } catch (err) {
-      console.error("Could not send invite email", err);
-      alert("Added to project, but failed to send the invite email. Please check EmailJS configuration or browser console.");
+  const handleDone = async () => {
+    if (newlyAdded.length > 0) {
+      setIsSendingEmails(true);
+      try {
+        await Promise.all(
+          newlyAdded.map(user => {
+            const userRoles = Array.isArray(roles[user.displayName]) && roles[user.displayName].length > 0 
+              ? roles[user.displayName] 
+              : ['Member'];
+            return sendPersonnelInviteEmail(user.email, user.displayName, projectName, userRoles);
+          })
+        );
+      } catch (err) {
+        console.error("Could not send invite emails", err);
+        alert("Some invite emails could not be sent. Please check EmailJS configuration or browser console.");
+      }
+      setIsSendingEmails(false);
+      setNewlyAdded([]);
     }
+    onClose();
   };
 
   const handleDelete = (name: string) => {
@@ -185,6 +219,11 @@ export default function PersonnelModal({
                   const isAssigned = taskAssignees.includes(person);
                   const taskCount = taskAssignees.filter(a => a === person).length;
                   const isConfirming = confirmDelete === person;
+                  const isDropdownOpen = openDropdownPerson === person;
+                  const availableToAdd = availableRoles.filter(role => {
+                    const current = Array.isArray(roles[person]) ? roles[person] : [];
+                    return !current.includes(role);
+                  });
 
                   return (
                     <motion.div
@@ -210,16 +249,113 @@ export default function PersonnelModal({
                               Assigned to {taskCount} task{taskCount !== 1 ? 's' : ''}
                             </p>
                           )}
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {(Array.isArray(roles[person]) && roles[person].length > 0 ? roles[person] : ['Member']).map(role => (
+                              <span key={role} className="flex items-center gap-1 px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded text-[9px] font-bold uppercase tracking-wider">
+                                {role}
+                                {isOwner && role !== 'Member' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const current = Array.isArray(roles[person]) ? roles[person] : [];
+                                      const updated = current.filter(r => r !== role);
+                                      onUpdateRoles({ ...roles, [person]: updated.length > 0 ? updated : ['Member'] }, availableRoles);
+                                    }}
+                                    className="hover:text-rose-500 transition-colors"
+                                  >
+                                    <X className="w-2.5 h-2.5" />
+                                  </button>
+                                )}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                      {isOwner && (
-                        <div className="flex items-center gap-2 shrink-0">
-                          {isConfirming && (
-                            <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold whitespace-nowrap">
-                              Has tasks! Sure?
-                            </span>
-                          )}
-                          <button
+                      <div className="flex items-center gap-3 shrink-0">
+                        {isOwner && (
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                if (isDropdownOpen) {
+                                  setOpenDropdownPerson(null);
+                                } else {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setDropdownCoords({
+                                    top: rect.bottom + 6,
+                                    right: window.innerWidth - rect.right
+                                  });
+                                  setOpenDropdownPerson(person);
+                                }
+                              }}
+                              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all shadow-xs ${
+                                isDropdownOpen 
+                                  ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-800/60 dark:text-indigo-300' 
+                                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
+                              } text-xs font-bold select-none cursor-pointer`}
+                            >
+                              <Plus className={`w-3.5 h-3.5 ${isDropdownOpen ? 'text-indigo-600 dark:text-indigo-400' : 'text-indigo-500'}`} />
+                              <span>Role</span>
+                              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180 text-indigo-500' : 'text-slate-400 opacity-70'}`} />
+                            </button>
+                            
+                            {/* Invisible overlay to catch clicks outside */}
+                            {isDropdownOpen && (
+                              <div 
+                                className="fixed inset-0 z-40" 
+                                onClick={() => setOpenDropdownPerson(null)} 
+                              />
+                            )}
+
+                            <AnimatePresence>
+                              {isDropdownOpen && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                                  exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                                  transition={{ duration: 0.15 }}
+                                  className="fixed w-44 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 z-[100] overflow-hidden"
+                                  style={{ top: dropdownCoords?.top, right: dropdownCoords?.right }}
+                                >
+                                  <div className="p-1.5 flex flex-col gap-0.5">
+                                    <div className="px-2 py-1.5 mb-1 border-b border-slate-100 dark:border-slate-700/50">
+                                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Available Roles</p>
+                                    </div>
+                                    {availableToAdd.length === 0 ? (
+                                      <div className="px-3 py-3 text-[10px] text-slate-400 text-center italic">
+                                        All roles assigned
+                                      </div>
+                                    ) : (
+                                      availableToAdd.map(role => (
+                                        <button
+                                          type="button"
+                                          key={role}
+                                          onClick={() => {
+                                            const current = Array.isArray(roles[person]) ? roles[person].filter(r => r !== 'Member') : [];
+                                            onUpdateRoles({ ...roles, [person]: [...current, role] }, availableRoles);
+                                            setOpenDropdownPerson(null);
+                                          }}
+                                          className="text-left px-2.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-300 rounded-lg transition-colors flex items-center justify-between group cursor-pointer"
+                                        >
+                                          {role}
+                                          <Plus className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </button>
+                                      ))
+                                    )}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        )}
+                        {isOwner && (
+                          <div className="flex items-center gap-2">
+                            {isConfirming && (
+                              <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold whitespace-nowrap">
+                                Has tasks! Sure?
+                              </span>
+                            )}
+                            <button
                             type="button"
                             onClick={() => handleDelete(person)}
                             className={`p-1.5 rounded-lg cursor-pointer transition-colors ${
@@ -231,9 +367,10 @@ export default function PersonnelModal({
                             id={`btn-delete-personnel-${index}`}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </motion.div>
                   );
                 })}
@@ -248,11 +385,17 @@ export default function PersonnelModal({
             </p>
             <button
               type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 text-xs font-bold tracking-wide uppercase text-white bg-violet-600 hover:bg-violet-700 rounded-xl cursor-pointer shadow-md shadow-violet-100 dark:shadow-none transition-all active:scale-98 select-none"
+              onClick={handleDone}
+              disabled={isSendingEmails}
+              className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold tracking-wide uppercase text-white bg-violet-600 hover:bg-violet-700 rounded-xl cursor-pointer shadow-md shadow-violet-100 dark:shadow-none transition-all active:scale-98 select-none disabled:opacity-70 disabled:cursor-not-allowed"
               id="btn-done-personnel"
             >
-              Done
+              {isSendingEmails ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Sending...
+                </>
+              ) : 'Done'}
             </button>
           </div>
         </motion.div>
