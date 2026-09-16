@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Clock, X, User, Edit3, Trash2, Calendar, FileText, Users } from 'lucide-react';
+import { Clock, X, User, Edit3, Trash2, Calendar, FileText, Users, Check } from 'lucide-react';
 import { ActivityLog } from '../types';
 
 interface ActivityLogPanelProps {
@@ -54,6 +54,7 @@ export default function ActivityLogPanel({ isOpen, onClose, logs }: ActivityLogP
 
   const [filterAction, setFilterAction] = useState<string>('All');
   const [filterDate, setFilterDate] = useState<string>('');
+  const [isActionDropdownOpen, setIsActionDropdownOpen] = useState(false);
 
   // Filter & Sort logs: newest first
   const filteredLogs = [...logs]
@@ -101,45 +102,92 @@ export default function ActivityLogPanel({ isOpen, onClose, logs }: ActivityLogP
             </div>
 
             {/* Filter Bar */}
-            <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col gap-2 shrink-0">
-              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Filter Activity</p>
-              <div className="flex items-center gap-2">
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col gap-3 shrink-0">
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Filter Activity</p>
+              <div className="flex items-center gap-2 relative z-10">
+                {/* Custom Action Dropdown */}
                 <div className="relative flex-1">
-                  <select
-                    value={filterAction}
-                    onChange={(e) => setFilterAction(e.target.value)}
-                    className="w-full pl-3 pr-8 py-2 text-xs bg-slate-100/50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 text-slate-800 dark:text-slate-100 font-medium cursor-pointer transition-all appearance-none shadow-xs"
+                  <button
+                    onClick={() => setIsActionDropdownOpen(!isActionDropdownOpen)}
+                    className={`w-full pl-3 pr-8 py-2 text-xs bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 border ${isActionDropdownOpen ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-200 dark:border-slate-700'} rounded-xl font-medium cursor-pointer transition-all text-left flex items-center justify-between text-slate-700 dark:text-slate-200 shadow-xs`}
                   >
-                    <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" value="All">All Actions</option>
-                    <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" value="task_create">Task Created</option>
-                    <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" value="task_update">Task Updated</option>
-                    <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" value="task_delete">Task Deleted</option>
-                    <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" value="task_reschedule">Task Rescheduled</option>
-                    <option className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" value="personnel_update">Collaborators Updated</option>
-                  </select>
+                    <span className="truncate">
+                      {filterAction === 'All' && 'All Actions'}
+                      {filterAction === 'task_create' && 'Task Created'}
+                      {filterAction === 'task_update' && 'Task Updated'}
+                      {filterAction === 'task_delete' && 'Task Deleted'}
+                      {filterAction === 'task_reschedule' && 'Task Rescheduled'}
+                      {filterAction === 'personnel_update' && 'Collaborators Updated'}
+                    </span>
+                  </button>
                   <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" /></svg>
                   </div>
+
+                  <AnimatePresence>
+                    {isActionDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsActionDropdownOpen(false)} />
+                        <motion.div
+                          initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute top-full mt-2 left-0 w-48 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/60 rounded-xl shadow-xl z-50 p-1.5 flex flex-col gap-0.5 overflow-hidden"
+                        >
+                          {[
+                            { value: 'All', label: 'All Actions' },
+                            { value: 'task_create', label: 'Task Created' },
+                            { value: 'task_update', label: 'Task Updated' },
+                            { value: 'task_delete', label: 'Task Deleted' },
+                            { value: 'task_reschedule', label: 'Task Rescheduled' },
+                            { value: 'personnel_update', label: 'Collaborators Updated' },
+                          ].map(option => (
+                            <button
+                              key={option.value}
+                              onClick={() => {
+                                setFilterAction(option.value);
+                                setIsActionDropdownOpen(false);
+                              }}
+                              className={`flex items-center justify-between w-full text-left px-2.5 py-2 text-xs rounded-lg transition-colors ${filterAction === option.value ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+                            >
+                              {option.label}
+                              {filterAction === option.value && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
+                            </button>
+                          ))}
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
                 </div>
                 
-                <input
-                  type="date"
-                  value={filterDate}
-                  onChange={(e) => setFilterDate(e.target.value)}
-                  className="flex-1 px-3 py-2 text-xs bg-slate-100/50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 text-slate-800 dark:text-slate-100 font-medium cursor-pointer transition-all shadow-xs"
-                />
+                {/* Date Input styled to match */}
+                <div className="relative flex-1">
+                  <input
+                    type="date"
+                    value={filterDate}
+                    onChange={(e) => setFilterDate(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 dark:text-slate-200 font-medium cursor-pointer transition-all shadow-xs"
+                  />
+                </div>
               </div>
-              {(filterAction !== 'All' || filterDate) && (
-                <button
-                  onClick={() => {
-                    setFilterAction('All');
-                    setFilterDate('');
-                  }}
-                  className="text-[10px] font-semibold text-rose-500 hover:text-rose-600 transition-colors cursor-pointer self-start mt-0.5"
-                >
-                  Clear Filters
-                </button>
-              )}
+              
+              <AnimatePresence>
+                {(filterAction !== 'All' || filterDate) && (
+                  <motion.button
+                    initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                    animate={{ opacity: 1, height: 'auto', marginTop: 4 }}
+                    exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                    onClick={() => {
+                      setFilterAction('All');
+                      setFilterDate('');
+                    }}
+                    className="text-[10px] font-bold text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 transition-colors cursor-pointer self-start flex items-center gap-1 bg-rose-50 dark:bg-rose-500/10 px-2 py-1 rounded-md"
+                  >
+                    <X className="w-3 h-3" /> Clear Filters
+                  </motion.button>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Scrollable Logs Feed */}

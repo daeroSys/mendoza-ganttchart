@@ -40,6 +40,8 @@ interface GanttChartHeaderProps {
   onScrollToToday: () => void;
   title?: string;
   subtitle?: string;
+  logoUrl?: string;
+  onLogoUpdate?: (logoBase64: string) => void;
   onBack?: () => void;
   onOpenPersonnel?: () => void;
   onShare?: () => void;
@@ -69,6 +71,8 @@ export default function GanttChartHeader({
   onScrollToToday,
   title = 'Project Gantt Chart Planner',
   subtitle = 'Centralized Infrastructure, Decentralized Access',
+  logoUrl,
+  onLogoUpdate,
   onBack,
   onOpenPersonnel,
   onShare,
@@ -84,6 +88,7 @@ export default function GanttChartHeader({
   isOwner = true,
 }: GanttChartHeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [isRolesDropdownOpen, setIsRolesDropdownOpen] = useState(false);
   const [isPriorityDropdownOpen, setIsPriorityDropdownOpen] = useState(false);
   const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
@@ -96,6 +101,17 @@ export default function GanttChartHeader({
       }
       return { ...prev, roles: [...current, role] };
     });
+  };
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onLogoUpdate) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        onLogoUpdate(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,9 +152,35 @@ export default function GanttChartHeader({
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
-          <div className="p-3 bg-indigo-600 dark:bg-indigo-500 rounded-2xl text-white shadow-lg shadow-indigo-100 dark:shadow-none" id="header-logo-container">
-            <Calendar className="w-6 h-6 animate-pulse" id="header-logo-icon" />
+          
+          <div 
+            className={`w-[52px] h-[52px] rounded-2xl flex items-center justify-center relative group cursor-pointer shrink-0 transition-all duration-500 ${logoUrl ? 'shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] hover:shadow-[0_8px_30px_rgba(79,70,229,0.35)] hover:-translate-y-1 bg-white dark:bg-slate-800' : 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-lg shadow-indigo-100 dark:shadow-none overflow-hidden hover:scale-105'}`} 
+            id="header-logo-container"
+            onClick={() => logoInputRef.current?.click()}
+          >
+            {logoUrl ? (
+              <div className="absolute inset-0 rounded-2xl overflow-hidden ring-1 ring-black/5 dark:ring-white/10">
+                <img src={logoUrl} alt="Project Logo" className="w-full h-full object-cover scale-[1.18] transition-transform duration-700 ease-out group-hover:scale-[1.25]" />
+              </div>
+            ) : (
+              <Calendar className="w-6 h-6 animate-pulse" id="header-logo-icon" />
+            )}
+            
+            {/* Hover overlay for changing logo */}
+            {onLogoUpdate && (
+              <div className="absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-[2px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-2xl z-10">
+                <Image className="w-5 h-5 text-white drop-shadow-md scale-75 group-hover:scale-100 transition-transform duration-300" />
+              </div>
+            )}
+            <input 
+              type="file" 
+              ref={logoInputRef} 
+              className="hidden" 
+              accept="image/*" 
+              onChange={handleLogoChange}
+            />
           </div>
+
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50 font-display" id="header-title">
               {title}

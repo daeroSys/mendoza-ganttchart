@@ -47,6 +47,7 @@ export interface Project {
   diagrams?: ProjectDiagram[];
   shareToken?: string;
   collaborators?: string[];
+  logoUrl?: string;
 }
 
 export type ZoomLevel = 'day' | 'week' | 'month';

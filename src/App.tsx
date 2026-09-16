@@ -15,6 +15,7 @@ import GanttChartHeader from './components/GanttChartHeader';
 import GanttTimeline from './components/GanttTimeline';
 import TaskModal from './components/TaskModal';
 import PersonnelModal from './components/PersonnelModal';
+import ShareModal from './components/ShareModal';
 import TaskDetailsModal from './components/TaskDetailsModal';
 import HomePage from './components/HomePage';
 import ExportModal from './components/ExportModal';
@@ -24,7 +25,7 @@ import DiagramsHub from './components/DiagramsHub';
 import { exportElementAsImage } from './utils/exportUtils';
 import { supabase } from './utils/supabaseClient';
 import Auth from './components/Auth';
-import { fetchAllProjects, fetchProjectDetails, createProject, deleteProject, updateProjectDetails, mapTaskToDb, fetchAllProfiles } from './utils/supabaseData';
+import { fetchAllProjects, fetchProjectDetails, createProject, deleteProject, updateProjectDetails, mapTaskToDb, fetchAllProfiles, updateProjectLogo } from './utils/supabaseData';
 import { sendTaskAssignmentEmail } from './utils/emailService';
 
 const STORAGE_ZOOM_KEY = 'gantt_planner_zoom';
@@ -53,6 +54,7 @@ export default function App() {
 
   // Projects
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectLogos, setProjectLogos] = useState<Record<string, string>>({});
 
   // Gantt-level state
   const [zoom, setZoom] = useState<ZoomLevel>('day');
@@ -72,6 +74,8 @@ export default function App() {
     roles: [],
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareUrlToDisplay, setShareUrlToDisplay] = useState('');
   const [isTaskDetailsOpen, setIsTaskDetailsOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [isPersonnelOpen, setIsPersonnelOpen] = useState(false);
@@ -113,6 +117,16 @@ export default function App() {
     if (storedZoom) {
       setZoom(storedZoom as ZoomLevel);
     }
+
+    // Load local logos
+    const logos: Record<string, string> = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith('project_logo_')) {
+        logos[key.replace('project_logo_', '')] = localStorage.getItem(key) || '';
+      }
+    }
+    setProjectLogos(logos);
 
     const handleHashChange = async () => {
       const hash = window.location.hash;
@@ -271,6 +285,22 @@ export default function App() {
       });
     }
     logAction('project_update', details);
+  };
+
+  const handleLogoUpdate = async (logoBase64: string) => {
+    if (activeProjectId) {
+      localStorage.setItem(`project_logo_${activeProjectId}`, logoBase64);
+      setProjectLogos(prev => ({ ...prev, [activeProjectId]: logoBase64 }));
+      setProjects(prev => prev.map(p => 
+        p.id === activeProjectId ? { ...p, logoUrl: logoBase64 } : p
+      ));
+      
+      try {
+        await updateProjectLogo(activeProjectId, logoBase64);
+      } catch (err) {
+        console.error("Failed to sync logo to database", err);
+      }
+    }
   };
 
   const handleZoomChange = (newZoom: ZoomLevel) => {
@@ -664,13 +694,8 @@ export default function App() {
     const token = activeProject.shareToken || activeProject.id;
     const shareUrl = `${window.location.origin}${window.location.pathname}#/invite/${token}`;
     
-    navigator.clipboard.writeText(shareUrl)
-      .then(() => {
-        alert('Collaboration invite link copied to clipboard! Anyone with this link can edit this project.');
-      })
-      .catch(err => {
-        console.error('Failed to copy link:', err);
-      });
+    setShareUrlToDisplay(shareUrl);
+    setIsShareModalOpen(true);
   };
 
   // ── RENDER ────────────────────────────────────────────────
@@ -714,6 +739,8 @@ export default function App() {
         onScrollToToday={handleScrollToToday}
         title={activeProject?.name || 'Project Gantt Chart'}
         subtitle={activeProject?.tag || "Visualize, orchestrate, and trace project milestones and tasks interactively."}
+        logoUrl={activeProject?.logoUrl || (activeProjectId ? projectLogos[activeProjectId] : undefined)}
+        onLogoUpdate={isGlobalOwner !== false && !restrictedMode ? handleLogoUpdate : undefined}
         availableRoles={activeProject?.availableRoles || []}
         onBack={handleBackToHome}
         onOpenPersonnel={() => setIsPersonnelOpen(true)}
@@ -908,6 +935,13 @@ export default function App() {
         taskAssignees={tasks.flatMap(t => t.assignee)}
         projectName={activeProject?.name || 'Project'}
         isOwner={isGlobalOwner}
+      />
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        shareUrl={shareUrlToDisplay}
       />
 
       {/* Export Format Selector Modal */}
