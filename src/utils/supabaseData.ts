@@ -79,7 +79,7 @@ export const fetchProjectDetails = async (projectId: string): Promise<Project | 
 
   const profiles = profilesRes.data || [];
 
-  return {
+  const result: Project = {
     id: projRes.data.id,
     name: projRes.data.name,
     createdAt: projRes.data.created_at,
@@ -104,16 +104,22 @@ export const fetchProjectDetails = async (projectId: string): Promise<Project | 
         details: l.details
       };
     }),
-    diagrams: (diagramsRes.data || [])
-      .filter((d: any) => d.title !== '__PROJECT_LOGO__')
-      .map((d: any) => ({
-        id: d.id,
-        title: d.title,
-        imageUrl: d.image_url,
-        description: d.description
-      })),
-    logoUrl: (diagramsRes.data || []).find((d: any) => d.title === '__PROJECT_LOGO__')?.image_url,
+    diagrams: (diagramsRes.data || []).map((d: any) => ({
+      id: d.id,
+      title: d.title,
+      imageUrl: d.image_url,
+      description: d.description
+    })),
+    logoUrl: undefined,
   };
+
+  const logoArray = projRes.data.roles?.['__PROJECT_LOGO__'];
+  if (Array.isArray(logoArray) && logoArray.length > 0) {
+    result.logoUrl = logoArray[0];
+    delete result.roles['__PROJECT_LOGO__']; // Hide it from actual roles list
+  }
+  
+  return result;
 };
 
 export const createProject = async (name: string, tag: string, ownerId: string, availableRoles: string[] = []): Promise<Project | null> => {
@@ -183,25 +189,4 @@ export const deleteProject = async (id: string) => {
 
 export const updateProjectDetails = async (id: string, name: string, tag: string) => {
   await supabase.from('projects').update({ name, tag }).eq('id', id);
-};
-
-export const updateProjectLogo = async (projectId: string, logoUrl: string) => {
-  const { data } = await supabase.from('project_diagrams')
-    .select('id')
-    .eq('project_id', projectId)
-    .eq('title', '__PROJECT_LOGO__')
-    .maybeSingle();
-
-  if (data) {
-    await supabase.from('project_diagrams')
-      .update({ image_url: logoUrl })
-      .eq('id', data.id);
-  } else {
-    await supabase.from('project_diagrams')
-      .insert({
-        project_id: projectId,
-        title: '__PROJECT_LOGO__',
-        image_url: logoUrl
-      });
-  }
 };

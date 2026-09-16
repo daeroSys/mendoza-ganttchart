@@ -25,7 +25,7 @@ import DiagramsHub from './components/DiagramsHub';
 import { exportElementAsImage } from './utils/exportUtils';
 import { supabase } from './utils/supabaseClient';
 import Auth from './components/Auth';
-import { fetchAllProjects, fetchProjectDetails, createProject, deleteProject, updateProjectDetails, mapTaskToDb, fetchAllProfiles, updateProjectLogo } from './utils/supabaseData';
+import { fetchAllProjects, fetchProjectDetails, createProject, deleteProject, updateProjectDetails, mapTaskToDb, fetchAllProfiles } from './utils/supabaseData';
 import { sendTaskAssignmentEmail } from './utils/emailService';
 
 const STORAGE_ZOOM_KEY = 'gantt_planner_zoom';
@@ -288,15 +288,17 @@ export default function App() {
   };
 
   const handleLogoUpdate = async (logoBase64: string) => {
-    if (activeProjectId) {
+    if (activeProjectId && activeProject) {
       localStorage.setItem(`project_logo_${activeProjectId}`, logoBase64);
       setProjectLogos(prev => ({ ...prev, [activeProjectId]: logoBase64 }));
-      setProjects(prev => prev.map(p => 
-        p.id === activeProjectId ? { ...p, logoUrl: logoBase64 } : p
-      ));
+      
+      const newRoles = { ...(activeProject.roles || {}), '__PROJECT_LOGO__': [logoBase64] };
+      const updatedProject = { ...activeProject, roles: newRoles, logoUrl: logoBase64 };
+      
+      setProjects(prev => prev.map(p => p.id === activeProjectId ? updatedProject : p));
       
       try {
-        await updateProjectLogo(activeProjectId, logoBase64);
+        await supabase.from('projects').update({ roles: newRoles }).eq('id', activeProjectId);
       } catch (err) {
         console.error("Failed to sync logo to database", err);
       }

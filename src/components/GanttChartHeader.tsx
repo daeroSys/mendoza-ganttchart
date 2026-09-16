@@ -108,7 +108,37 @@ export default function GanttChartHeader({
     if (file && onLogoUpdate) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        onLogoUpdate(reader.result as string);
+        const img = new window.Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 200; // Small size for logo to ensure reliable DB sync
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            // Draw image directly to preserve transparency
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Compress to WEBP to ensure small payload while preserving transparency
+            const dataUrl = canvas.toDataURL('image/webp', 0.85);
+            onLogoUpdate(dataUrl);
+          }
+        };
+        img.src = reader.result as string;
       };
       reader.readAsDataURL(file);
     }
@@ -154,9 +184,9 @@ export default function GanttChartHeader({
           )}
           
           <div 
-            className={`w-[52px] h-[52px] rounded-2xl flex items-center justify-center relative group cursor-pointer shrink-0 transition-all duration-500 ${logoUrl ? 'shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] hover:shadow-[0_8px_30px_rgba(79,70,229,0.35)] hover:-translate-y-1 bg-white dark:bg-slate-800' : 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-lg shadow-indigo-100 dark:shadow-none overflow-hidden hover:scale-105'}`} 
+            className={`w-[52px] h-[52px] rounded-2xl flex items-center justify-center relative group shrink-0 transition-all duration-500 ${logoUrl ? `shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.4)] bg-white dark:bg-slate-800 ${onLogoUpdate ? 'hover:shadow-[0_8px_30px_rgba(79,70,229,0.35)] hover:-translate-y-1 cursor-pointer' : ''}` : `bg-indigo-600 dark:bg-indigo-500 text-white shadow-lg shadow-indigo-100 dark:shadow-none overflow-hidden ${onLogoUpdate ? 'hover:scale-105 cursor-pointer' : ''}`}`} 
             id="header-logo-container"
-            onClick={() => logoInputRef.current?.click()}
+            onClick={() => { if(onLogoUpdate) logoInputRef.current?.click(); }}
           >
             {logoUrl ? (
               <div className="absolute inset-0 rounded-2xl overflow-hidden ring-1 ring-black/5 dark:ring-white/10">
