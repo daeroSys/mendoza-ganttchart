@@ -274,7 +274,16 @@ export default function App() {
     if (!activeProjectId || !activeProject) return;
     const updatedProject = { ...activeProject, diagrams: newDiagrams };
     setProjects(prev => prev.map(p => p.id === activeProjectId ? updatedProject : p));
-    
+
+    // Delete diagrams that were removed
+    const oldIds = (activeProject.diagrams || []).map(d => d.id);
+    const newIds = newDiagrams.map(d => d.id);
+    const deletedIds = oldIds.filter(id => !newIds.includes(id));
+    if (deletedIds.length > 0) {
+      await supabase.from('project_diagrams').delete().in('id', deletedIds);
+    }
+
+    // Upsert remaining / updated diagrams
     for (const d of newDiagrams) {
       await supabase.from('project_diagrams').upsert({
         id: d.id,
