@@ -32,6 +32,8 @@ export interface ProjectDiagram {
   title: string;
   imageUrl: string;
   description?: string;
+  type?: 'image' | 'mermaid';
+  mermaidCode?: string;
 }
 
 export interface Project {

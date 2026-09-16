@@ -108,7 +108,9 @@ export const fetchProjectDetails = async (projectId: string): Promise<Project | 
       id: d.id,
       title: d.title,
       imageUrl: d.image_url,
-      description: d.description
+      description: d.description,
+      type: d.type || 'image',
+      mermaidCode: d.mermaid_code || undefined,
     })),
     logoUrl: undefined,
   };

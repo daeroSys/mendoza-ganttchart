@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Edit2, Trash2, Maximize2, X, ExternalLink, Image as ImageIcon, Upload, Link } from 'lucide-react';
+import { Plus, Edit2, Trash2, Maximize2, X, ExternalLink, Image as ImageIcon, Upload, Link, FileCode2, Code, Eye } from 'lucide-react';
 import { ProjectDiagram } from '../types';
+import MermaidDiagram from './MermaidDiagram';
 
 interface DiagramsHubProps {
   diagrams: ProjectDiagram[];
   onUpdateDiagrams: (updated: ProjectDiagram[], details: string) => void;
   restrictedMode: boolean;
   isOwner?: boolean;
+  isViewerMode?: boolean;
 }
 
 export default function DiagramsHub({
@@ -15,6 +17,7 @@ export default function DiagramsHub({
   onUpdateDiagrams,
   restrictedMode,
   isOwner = true,
+  isViewerMode = false,
 }: DiagramsHubProps) {
   const [activeTabId, setActiveTabId] = useState<string>(() => {
     return diagrams[0]?.id || '';
@@ -36,9 +39,21 @@ export default function DiagramsHub({
   // Lightbox zoom state
   const [zoomImageSrc, setZoomImageSrc] = useState<string | null>(null);
 
+  // Mermaid view mode
+  const [viewMode, setViewMode] = useState<'preview' | 'code'>('preview');
+  const [tempMermaidCode, setTempMermaidCode] = useState<string>('');
+
   // Set first tab active if active tab is deleted or missing
   const activeDiagram = diagrams.find(d => d.id === activeTabId) || diagrams[0] || null;
   const currentActiveId = activeDiagram?.id || '';
+
+  // Reset view mode when switching tabs
+  useEffect(() => {
+    setViewMode('preview');
+    if (activeDiagram?.mermaidCode) {
+      setTempMermaidCode(activeDiagram.mermaidCode);
+    }
+  }, [activeTabId, activeDiagram?.mermaidCode]);
 
   const handleOpenCreate = () => {
     setTitle('');
@@ -79,6 +94,7 @@ export default function DiagramsHub({
         title: title.trim(),
         imageUrl: '', // Always starts empty; image is attached later
         description: description.trim() || undefined,
+        type: 'image', // Default type, can be changed later
       };
       const updated = [...diagrams, newDiag];
       onUpdateDiagrams(updated, `created diagram tab "${newDiag.title}"`);
@@ -115,7 +131,7 @@ export default function DiagramsHub({
       const base64String = event.target?.result as string;
       const updated = diagrams.map(d => {
         if (d.id === activeDiagram.id) {
-          return { ...d, imageUrl: base64String };
+          return { ...d, imageUrl: base64String, type: 'image' as const };
         }
         return d;
       });
@@ -134,7 +150,7 @@ export default function DiagramsHub({
 
     const updated = diagrams.map(d => {
       if (d.id === activeDiagram.id) {
-        return { ...d, imageUrl: pastedUrl.trim() };
+        return { ...d, imageUrl: pastedUrl.trim(), type: 'image' as const };
       }
       return d;
     });
@@ -143,19 +159,47 @@ export default function DiagramsHub({
     setShowUrlField(false);
   };
 
-  // Remove image attachment
-  const handleRemoveImage = () => {
+  const handleAddMermaid = () => {
     if (!activeDiagram) return;
-    if (confirm(`Remove the attached image from "${activeDiagram.title}"?`)) {
+    const defaultMermaid = `graph TD;\n    A[Start] --> B{Is it working?};\n    B -- Yes --> C[Great!];\n    B -- No --> D[Debug];`;
+    const updated = diagrams.map(d => {
+      if (d.id === activeDiagram.id) {
+        return { ...d, type: 'mermaid' as const, mermaidCode: defaultMermaid, imageUrl: '' };
+      }
+      return d;
+    });
+    onUpdateDiagrams(updated, `initialized mermaid code for "${activeDiagram.title}"`);
+    setTempMermaidCode(defaultMermaid);
+    setViewMode('code');
+  };
+
+  const handleSaveMermaid = () => {
+    if (!activeDiagram) return;
+    const updated = diagrams.map(d => {
+      if (d.id === activeDiagram.id) {
+        return { ...d, mermaidCode: tempMermaidCode };
+      }
+      return d;
+    });
+    onUpdateDiagrams(updated, `updated mermaid code for "${activeDiagram.title}"`);
+    setViewMode('preview');
+  };
+
+  // Remove attachment (both image and mermaid)
+  const handleRemoveAttachment = () => {
+    if (!activeDiagram) return;
+    if (confirm(`Remove the attached diagram from "${activeDiagram.title}"?`)) {
       const updated = diagrams.map(d => {
         if (d.id === activeDiagram.id) {
-          return { ...d, imageUrl: '' };
+          return { ...d, imageUrl: '', mermaidCode: '', type: 'image' as const };
         }
         return d;
       });
-      onUpdateDiagrams(updated, `removed attached image from "${activeDiagram.title}"`);
+      onUpdateDiagrams(updated, `removed attached diagram from "${activeDiagram.title}"`);
     }
   };
+
+  const hasAttachment = activeDiagram?.imageUrl || activeDiagram?.type === 'mermaid';
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-5 sm:p-6 rounded-3xl shadow-sm flex flex-col gap-6" id="diagrams-hub-panel">
@@ -235,11 +279,11 @@ export default function DiagramsHub({
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
-                        {activeDiagram.imageUrl && (
+                        {hasAttachment && (
                           <button
-                            onClick={handleRemoveImage}
+                            onClick={handleRemoveAttachment}
                             className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 rounded-lg cursor-pointer transition-colors"
-                            title="Remove/Detach Image"
+                            title="Remove/Detach Diagram"
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -265,7 +309,7 @@ export default function DiagramsHub({
                     </p>
                   )}
 
-                  {activeDiagram.imageUrl && (
+                  {activeDiagram.imageUrl && activeDiagram.type !== 'mermaid' && (
                     <div className="pt-3 border-t border-slate-100 dark:border-slate-850 flex items-center gap-1.5">
                       <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Source:</span>
                       {activeDiagram.imageUrl.startsWith('data:') ? (
@@ -283,100 +327,179 @@ export default function DiagramsHub({
                       )}
                     </div>
                   )}
+                  {activeDiagram.type === 'mermaid' && (
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-850 flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Type:</span>
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-450">Mermaid Diagram</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Graphic Display Panel (Image view or Attachment Box) */}
-              <div className="lg:col-span-8 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden relative bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] flex items-center justify-center min-h-[300px] sm:min-h-[400px]">
-                {activeDiagram.imageUrl ? (
-                  <>
-                    <img
-                      src={activeDiagram.imageUrl}
-                      alt={activeDiagram.title}
-                      onClick={() => setZoomImageSrc(activeDiagram.imageUrl)}
-                      className="max-w-full max-h-[380px] object-contain rounded-lg shadow-sm border border-slate-200/40 dark:border-slate-850 cursor-zoom-in hover:brightness-95 dark:hover:brightness-110 active:scale-99 transition-all p-3 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xs"
-                    />
-                    
-                    <button
-                      onClick={() => setZoomImageSrc(activeDiagram.imageUrl)}
-                      className="absolute bottom-4 right-4 p-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs rounded-xl border border-slate-200/50 dark:border-slate-800 shadow-md text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
-                      title="Expand Fullscreen"
-                    >
-                      <Maximize2 className="w-4 h-4" />
-                    </button>
-                  </>
-                ) : (
-                  // No image attached placeholder
-                  <div className="flex flex-col items-center justify-center p-6 text-center max-w-sm">
-                    <ImageIcon className="w-12 h-12 text-slate-300 dark:text-slate-700 mb-3 animate-pulse" />
-                    <h5 className="text-sm font-bold text-slate-700 dark:text-slate-350">No Image Attached</h5>
-                    
-                    {!restrictedMode && isOwner !== false ? (
-                      // Owner upload controls
-                      <div className="mt-4 w-full flex flex-col gap-3">
-                        <p className="text-xs text-slate-400 dark:text-slate-500">
-                          Attach an architecture file or paste an image URL to share this diagram with teammates.
-                        </p>
+              {/* Graphic Display Panel (Image view, Mermaid view, or Attachment Box) */}
+              <div className="lg:col-span-8 flex flex-col gap-3">
+                
+                {/* Mode toggle (Code / Preview) for Mermaid diagrams */}
+                {activeDiagram.type === 'mermaid' && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
+                      <button
+                        onClick={() => setViewMode('code')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer select-none ${
+                          viewMode === 'code' 
+                            ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm' 
+                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        }`}
+                      >
+                        <Code className="w-3.5 h-3.5" />
+                        Code
+                      </button>
+                      <button
+                        onClick={() => setViewMode('preview')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer select-none ${
+                          viewMode === 'preview' 
+                            ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm' 
+                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        }`}
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        Preview
+                      </button>
+                    </div>
 
-                        <div className="flex flex-col sm:flex-row gap-2.5 justify-center mt-2">
-                          {/* File input trigger button */}
-                          <label className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl cursor-pointer shadow-sm transition-colors select-none">
-                            <Upload className="w-3.5 h-3.5" />
-                            <span>Upload Image File</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleFileUpload}
-                              className="hidden"
-                            />
-                          </label>
-
-                          <button
-                            type="button"
-                            onClick={() => setShowUrlField(prev => !prev)}
-                            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors"
-                          >
-                            <Link className="w-3.5 h-3.5" />
-                            <span>{showUrlField ? 'Cancel' : 'Paste Image Link'}</span>
-                          </button>
-                        </div>
-
-                        {/* Inline URL paste field */}
-                        <AnimatePresence>
-                          {showUrlField && (
-                            <motion.form
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                              onSubmit={handleUrlSubmit}
-                              className="mt-3 flex gap-2 w-full"
-                            >
-                              <input
-                                type="url"
-                                value={pastedUrl}
-                                onChange={e => setPastedUrl(e.target.value)}
-                                placeholder="Paste direct image URL..."
-                                className="flex-1 px-3 py-1.5 text-xs bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-hidden focus:border-indigo-500 text-slate-800 dark:text-slate-100 font-sans"
-                                required
-                              />
-                              <button
-                                type="submit"
-                                className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg cursor-pointer"
-                              >
-                                Attach
-                              </button>
-                            </motion.form>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    ) : (
-                      // Teammate view-only placeholder
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
-                        Waiting for project owner to attach the visual layout for this diagram.
-                      </p>
+                    {viewMode === 'code' && (!restrictedMode && isOwner !== false) && tempMermaidCode !== activeDiagram.mermaidCode && (
+                       <button
+                         onClick={handleSaveMermaid}
+                         className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors cursor-pointer"
+                       >
+                         Save Code
+                       </button>
                     )}
                   </div>
                 )}
+
+                <div className={`border rounded-2xl overflow-hidden relative flex items-center justify-center min-h-[300px] sm:min-h-[400px] ${
+                  activeDiagram.type === 'mermaid' && viewMode === 'preview'
+                    ? 'bg-[#0d1117] border-slate-700'
+                    : 'border-slate-200 dark:border-slate-800 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px]'
+                }`}>
+                  
+                  {activeDiagram.type === 'mermaid' ? (
+                    viewMode === 'code' ? (
+                      <div className="w-full h-full min-h-[400px] bg-slate-900 p-4">
+                        <textarea
+                          value={tempMermaidCode}
+                          onChange={(e) => setTempMermaidCode(e.target.value)}
+                          readOnly={restrictedMode || isOwner === false}
+                          className="w-full h-full min-h-[360px] bg-transparent text-slate-100 font-mono text-xs focus:outline-hidden resize-none"
+                          spellCheck={false}
+                          placeholder="Enter your Mermaid diagram code here..."
+                        />
+                      </div>
+                    ) : (
+                      <MermaidDiagram chart={activeDiagram.mermaidCode || ''} />
+                    )
+                  ) : activeDiagram.imageUrl ? (
+                    <>
+                      <img
+                        src={activeDiagram.imageUrl}
+                        alt={activeDiagram.title}
+                        onClick={() => setZoomImageSrc(activeDiagram.imageUrl)}
+                        className="max-w-full max-h-[380px] object-contain rounded-lg shadow-sm border border-slate-200/40 dark:border-slate-850 cursor-zoom-in hover:brightness-95 dark:hover:brightness-110 active:scale-99 transition-all p-3 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xs"
+                      />
+                      
+                      <button
+                        onClick={() => setZoomImageSrc(activeDiagram.imageUrl)}
+                        className="absolute bottom-4 right-4 p-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs rounded-xl border border-slate-200/50 dark:border-slate-800 shadow-md text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer"
+                        title="Expand Fullscreen"
+                      >
+                        <Maximize2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  ) : (
+                    // No image attached placeholder
+                    <div className="flex flex-col items-center justify-center p-6 text-center max-w-sm">
+                      <ImageIcon className="w-12 h-12 text-slate-300 dark:text-slate-700 mb-3 animate-pulse" />
+                      <h5 className="text-sm font-bold text-slate-700 dark:text-slate-350">No Diagram Attached</h5>
+                      
+                      {!restrictedMode && isOwner !== false ? (
+                        // Owner upload controls
+                        <div className="mt-4 w-full flex flex-col gap-3">
+                          <p className="text-xs text-slate-400 dark:text-slate-500">
+                            Create a mermaid diagram, attach an architecture file or paste an image URL.
+                          </p>
+  
+                          <div className="flex flex-col gap-2 mt-2">
+                            <button
+                              type="button"
+                              onClick={handleAddMermaid}
+                              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl cursor-pointer shadow-sm transition-colors w-full"
+                            >
+                              <FileCode2 className="w-4 h-4" />
+                              <span>Create Mermaid Diagram</span>
+                            </button>
+                            
+                            <div className="flex flex-col sm:flex-row gap-2 w-full mt-1">
+                              {/* File input trigger button */}
+                              <label className="inline-flex flex-1 items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors">
+                                <Upload className="w-3.5 h-3.5" />
+                                <span>Upload Image</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleFileUpload}
+                                  className="hidden"
+                                />
+                              </label>
+    
+                              <button
+                                type="button"
+                                onClick={() => setShowUrlField(prev => !prev)}
+                                className="inline-flex flex-1 items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors"
+                              >
+                                <Link className="w-3.5 h-3.5" />
+                                <span>{showUrlField ? 'Cancel' : 'Paste Link'}</span>
+                              </button>
+                            </div>
+                          </div>
+  
+                          {/* Inline URL paste field */}
+                          <AnimatePresence>
+                            {showUrlField && (
+                              <motion.form
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                onSubmit={handleUrlSubmit}
+                                className="mt-2 flex gap-2 w-full"
+                              >
+                                <input
+                                  type="url"
+                                  value={pastedUrl}
+                                  onChange={e => setPastedUrl(e.target.value)}
+                                  placeholder="Paste direct image URL..."
+                                  className="flex-1 px-3 py-1.5 text-xs bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-hidden focus:border-indigo-500 text-slate-800 dark:text-slate-100 font-sans"
+                                  required
+                                />
+                                <button
+                                  type="submit"
+                                  className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg cursor-pointer"
+                                >
+                                  Attach
+                                </button>
+                              </motion.form>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      ) : (
+                        // Teammate view-only placeholder
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+                          Waiting for project owner to attach the visual layout for this diagram.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

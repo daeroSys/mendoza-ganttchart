@@ -281,7 +281,9 @@ export default function App() {
         project_id: activeProjectId,
         title: d.title,
         image_url: d.imageUrl,
-        description: d.description
+        description: d.description,
+        type: d.type || 'image',
+        mermaid_code: d.mermaidCode || null,
       });
     }
     logAction('project_update', details);
