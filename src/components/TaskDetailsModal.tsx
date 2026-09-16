@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar, AlignLeft, LayoutList } from 'lucide-react';
+import { X, Calendar, AlignLeft, LayoutList, Users } from 'lucide-react';
 import { Task } from '../types';
 
 interface TaskDetailsModalProps {
@@ -70,7 +70,7 @@ export default function TaskDetailsModal({
           initial={{ opacity: 0, scale: 0.95, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-800/80 overflow-hidden flex flex-col max-h-[85vh]"
+          className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-800/80 overflow-hidden flex flex-col max-h-[85vh]"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800/85">
@@ -111,6 +111,26 @@ export default function TaskDetailsModal({
               </label>
               <div className="text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800/80">
                 {formatDate(task.startDate)} &nbsp;—&nbsp; {formatDate(task.endDate)}
+              </div>
+            </div>
+
+            {/* Assigned Members */}
+            <div>
+              <label className="text-xs font-bold text-slate-400 tracking-wider uppercase flex items-center gap-1.5 mb-2">
+                <Users className="w-4 h-4" /> Assigned Members
+              </label>
+              <div className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800/80">
+                {task.assignee && task.assignee.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {task.assignee.map((member, index) => (
+                      <span key={index} className="px-2.5 py-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-medium">
+                        {member}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="italic text-slate-400">Unassigned</span>
+                )}
               </div>
             </div>
 

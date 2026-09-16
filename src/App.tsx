@@ -415,7 +415,6 @@ export default function App() {
     
     // Optimistic UI
     const updatedTasks = tasks.map(t => t.id === taskId ? { ...t, progress: newProgress } : t);
-    setTasks(updatedTasks);
     if (activeProject) {
       setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, tasks: updatedTasks } : p));
     }
@@ -450,7 +449,8 @@ export default function App() {
       }
       logAction('task_update', logDetails);
     } else {
-      finalTask = { ...taskData, id: `t-${Date.now()}` } as Task;
+      const maxSortOrder = tasks.length > 0 ? Math.max(...tasks.map(t => t.sortOrder || 0)) : -1;
+      finalTask = { ...taskData, id: `t-${Date.now()}`, sortOrder: maxSortOrder + 1 } as Task;
       
       // Optimistic UI
       if (activeProject) {

@@ -144,7 +144,7 @@ export default function TaskModal({
     }
 
     onSave({
-      ...(taskToEdit ? { id: taskToEdit.id } : {}),
+      ...(taskToEdit ? { id: taskToEdit.id, sortOrder: taskToEdit.sortOrder } : {}),
       name: name.trim(),
       startDate,
       endDate,
