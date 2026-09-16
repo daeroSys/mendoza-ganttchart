@@ -317,31 +317,33 @@ export default function PersonnelModal({
                                   className="fixed w-44 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 z-[100] overflow-hidden"
                                   style={{ top: dropdownCoords?.top, right: dropdownCoords?.right }}
                                 >
-                                  <div className="p-1.5 flex flex-col gap-0.5">
+                                  <div className="p-1.5 flex flex-col">
                                     <div className="px-2 py-1.5 mb-1 border-b border-slate-100 dark:border-slate-700/50">
                                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Available Roles</p>
                                     </div>
-                                    {availableToAdd.length === 0 ? (
-                                      <div className="px-3 py-3 text-[10px] text-slate-400 text-center italic">
-                                        All roles assigned
-                                      </div>
-                                    ) : (
-                                      availableToAdd.map(role => (
-                                        <button
-                                          type="button"
-                                          key={role}
-                                          onClick={() => {
-                                            const current = Array.isArray(roles[person]) ? roles[person].filter(r => r !== 'Member') : [];
-                                            onUpdateRoles({ ...roles, [person]: [...current, role] }, availableRoles);
-                                            setOpenDropdownPerson(null);
-                                          }}
-                                          className="text-left px-2.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-300 rounded-lg transition-colors flex items-center justify-between group cursor-pointer"
-                                        >
-                                          {role}
-                                          <Plus className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        </button>
-                                      ))
-                                    )}
+                                    <div className="flex flex-col gap-0.5 max-h-56 overflow-y-auto scrollbar-thin">
+                                      {availableToAdd.length === 0 ? (
+                                        <div className="px-3 py-3 text-[10px] text-slate-400 text-center italic">
+                                          All roles assigned
+                                        </div>
+                                      ) : (
+                                        availableToAdd.map(role => (
+                                          <button
+                                            type="button"
+                                            key={role}
+                                            onClick={() => {
+                                              const current = Array.isArray(roles[person]) ? roles[person].filter(r => r !== 'Member') : [];
+                                              onUpdateRoles({ ...roles, [person]: [...current, role] }, availableRoles);
+                                              setOpenDropdownPerson(null);
+                                            }}
+                                            className="text-left px-2.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-300 rounded-lg transition-colors flex items-center justify-between group cursor-pointer"
+                                          >
+                                            {role}
+                                            <Plus className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                          </button>
+                                        ))
+                                      )}
+                                    </div>
                                   </div>
                                 </motion.div>
                               )}
