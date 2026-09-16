@@ -80,20 +80,34 @@ export default function PersonnelModal({
   const handleDone = async () => {
     if (newlyAdded.length > 0) {
       setIsSendingEmails(true);
+      let hasErrors = false;
+      let errorDetails = "";
+
       try {
-        await Promise.all(
-          newlyAdded.map(user => {
-            const userRoles = Array.isArray(roles[user.displayName]) && roles[user.displayName].length > 0 
-              ? roles[user.displayName] 
-              : ['Member'];
-            return sendPersonnelInviteEmail(user.email, user.displayName, projectName, userRoles);
-          })
-        );
-      } catch (err: any) {
-        console.error("Could not send invite emails", err);
-        const errorMsg = err?.text || err?.message || JSON.stringify(err);
-        alert(`Some invite emails could not be sent. Error: ${errorMsg}\n\nPlease check EmailJS configuration or browser console.`);
+        for (const user of newlyAdded) {
+          const userRoles = Array.isArray(roles[user.displayName]) && roles[user.displayName].length > 0 
+            ? roles[user.displayName] 
+            : ['Member'];
+          
+          try {
+            await sendPersonnelInviteEmail(user.email, user.displayName, projectName, userRoles);
+          } catch (err: any) {
+            console.error(`Could not send invite to ${user.email}`, err);
+            hasErrors = true;
+            errorDetails = err?.text || err?.message || JSON.stringify(err);
+          }
+          
+          // Add a small delay between emails to avoid rate limits
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      } catch (err) {
+        // Fallback for unexpected loop errors
       }
+
+      if (hasErrors) {
+        alert(`Some invite emails (like @duck.com addresses) could not be sent. Error: ${errorDetails}\n\nPlease check EmailJS configuration or use a different email provider.`);
+      }
+      
       setIsSendingEmails(false);
       setNewlyAdded([]);
     }
