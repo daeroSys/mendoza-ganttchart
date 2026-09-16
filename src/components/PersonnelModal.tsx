@@ -44,7 +44,11 @@ export default function PersonnelModal({
 
   useEffect(() => {
     if (!openDropdownPerson) return;
-    const handleScroll = () => {
+    const handleScroll = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target?.closest && target.closest('#role-dropdown-container')) {
+        return;
+      }
       setOpenDropdownPerson(null);
     };
     window.addEventListener('scroll', handleScroll, true);
@@ -316,6 +320,7 @@ export default function PersonnelModal({
                                   transition={{ duration: 0.15 }}
                                   className="fixed w-44 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 z-[100] overflow-hidden"
                                   style={{ top: dropdownCoords?.top, right: dropdownCoords?.right }}
+                                  id="role-dropdown-container"
                                 >
                                   <div className="p-1.5 flex flex-col">
                                     <div className="px-2 py-1.5 mb-1 border-b border-slate-100 dark:border-slate-700/50">
