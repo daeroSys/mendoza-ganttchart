@@ -89,9 +89,10 @@ export default function PersonnelModal({
             return sendPersonnelInviteEmail(user.email, user.displayName, projectName, userRoles);
           })
         );
-      } catch (err) {
+      } catch (err: any) {
         console.error("Could not send invite emails", err);
-        alert("Some invite emails could not be sent. Please check EmailJS configuration or browser console.");
+        const errorMsg = err?.text || err?.message || JSON.stringify(err);
+        alert(`Some invite emails could not be sent. Error: ${errorMsg}\n\nPlease check EmailJS configuration or browser console.`);
       }
       setIsSendingEmails(false);
       setNewlyAdded([]);
