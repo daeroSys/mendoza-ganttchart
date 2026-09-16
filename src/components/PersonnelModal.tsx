@@ -357,9 +357,30 @@ export default function PersonnelModal({
                                             <Plus className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                                           </button>
                                         ))
-                                      )}
+                                        )}
+                                      </div>
+                                      <div className="px-2 py-1.5 mt-1 border-t border-slate-100 dark:border-slate-700/50">
+                                        <input
+                                          type="text"
+                                          placeholder="Add custom role... (Enter)"
+                                          className="w-full text-[11px] px-2 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400 text-slate-700 dark:text-slate-300 transition-shadow"
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              e.preventDefault();
+                                              const newRole = e.currentTarget.value.trim();
+                                              if (newRole) {
+                                                const current = Array.isArray(roles[person]) ? roles[person].filter(r => r !== 'Member') : [];
+                                                if (!current.includes(newRole)) {
+                                                  const newAvailableRoles = availableRoles.includes(newRole) ? availableRoles : [...availableRoles, newRole];
+                                                  onUpdateRoles({ ...roles, [person]: [...current, newRole] }, newAvailableRoles);
+                                                  setOpenDropdownPerson(null);
+                                                }
+                                              }
+                                            }
+                                          }}
+                                        />
+                                      </div>
                                     </div>
-                                  </div>
                                 </motion.div>
                               )}
                             </AnimatePresence>
