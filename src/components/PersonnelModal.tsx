@@ -38,7 +38,7 @@ export default function PersonnelModal({
   const [profiles, setProfiles] = useState<{id: string, email: string, full_name: string}[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [openDropdownPerson, setOpenDropdownPerson] = useState<string | null>(null);
-  const [dropdownCoords, setDropdownCoords] = useState<{top: number, right: number} | null>(null);
+  const [dropdownCoords, setDropdownCoords] = useState<{top?: number, bottom?: number, right: number} | null>(null);
   const [newlyAdded, setNewlyAdded] = useState<{email: string, displayName: string}[]>([]);
   const [isSendingEmails, setIsSendingEmails] = useState(false);
 
@@ -285,10 +285,20 @@ export default function PersonnelModal({
                                   setOpenDropdownPerson(null);
                                 } else {
                                   const rect = e.currentTarget.getBoundingClientRect();
-                                  setDropdownCoords({
-                                    top: rect.bottom + 6,
-                                    right: window.innerWidth - rect.right
-                                  });
+                                  const dropdownEstimatedHeight = 250;
+                                  const spaceBelow = window.innerHeight - rect.bottom;
+                                  
+                                  if (spaceBelow < dropdownEstimatedHeight) {
+                                    setDropdownCoords({
+                                      bottom: window.innerHeight - rect.top + 6,
+                                      right: window.innerWidth - rect.right
+                                    });
+                                  } else {
+                                    setDropdownCoords({
+                                      top: rect.bottom + 6,
+                                      right: window.innerWidth - rect.right
+                                    });
+                                  }
                                   setOpenDropdownPerson(person);
                                 }
                               }}
@@ -319,7 +329,7 @@ export default function PersonnelModal({
                                   exit={{ opacity: 0, y: -5, scale: 0.95 }}
                                   transition={{ duration: 0.15 }}
                                   className="fixed w-44 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 z-[100] overflow-hidden"
-                                  style={{ top: dropdownCoords?.top, right: dropdownCoords?.right }}
+                                  style={{ top: dropdownCoords?.top, bottom: dropdownCoords?.bottom, right: dropdownCoords?.right }}
                                   id="role-dropdown-container"
                                 >
                                   <div className="p-1.5 flex flex-col">
