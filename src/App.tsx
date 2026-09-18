@@ -36,12 +36,17 @@ export type UserRole = 'owner' | 'collaborator' | 'viewer';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
+  const [showAuth, setShowAuth] = useState(true);
   const isGlobalOwner = session?.user?.email === 'cedricpaulmendoza11@gmail.com';
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) setShowAuth(false);
+    });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (!session) setShowAuth(true);
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -864,8 +869,8 @@ export default function App() {
 
   // ── RENDER ────────────────────────────────────────────────
 
-  if (!session) {
-    return <Auth />;
+  if (showAuth) {
+    return <Auth onLogin={() => setShowAuth(false)} />;
   }
 
   // Homepage view

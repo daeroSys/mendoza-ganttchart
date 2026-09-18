@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { motion } from 'motion/react';
-import { Calendar, Mail, Lock, ArrowRight, Loader2, AlertCircle, User } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, AlertCircle, User, CheckCircle2 } from 'lucide-react';
 
 export default function Auth({ onLogin }: { onLogin?: () => void }) {
   const [name, setName] = useState('');
@@ -10,6 +10,7 @@ export default function Auth({ onLogin }: { onLogin?: () => void }) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,11 +30,14 @@ export default function Auth({ onLogin }: { onLogin?: () => void }) {
           }
         });
         if (error) throw error;
-        alert('Signup successful! Check your email or login directly if auto-confirm is enabled.');
+        setSuccessMsg('Account created successfully! You can now log in.');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        if (onLogin) onLogin();
+        setSuccessMsg('Login successful! Welcome back.');
+        setTimeout(() => {
+          if (onLogin) onLogin();
+        }, 1500);
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'An error occurred during authentication.');
@@ -44,6 +48,48 @@ export default function Auth({ onLogin }: { onLogin?: () => void }) {
 
   return (
     <div className="relative min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center overflow-hidden font-sans">
+      
+      {/* Success Modal Overlay */}
+      {successMsg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] p-8 max-w-sm w-full shadow-2xl flex flex-col items-center text-center relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-violet-500/10 pointer-events-none" />
+            <motion.div 
+              initial={{ scale: 0 }} 
+              animate={{ scale: 1 }} 
+              transition={{ type: "spring", delay: 0.1, bounce: 0.5 }}
+              className="w-20 h-20 bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mb-5 relative z-10"
+            >
+              <CheckCircle2 className="w-10 h-10" />
+            </motion.div>
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 relative z-10">Success</h3>
+            <p className="text-slate-500 dark:text-slate-400 relative z-10 mb-8">{successMsg}</p>
+            
+            {isSignUp ? (
+              <button 
+                onClick={() => {
+                  setSuccessMsg('');
+                  setIsSignUp(false);
+                  setPassword('');
+                }}
+                className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold py-3.5 rounded-2xl transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 active:scale-[0.98] relative z-10"
+              >
+                Go to Login
+              </button>
+            ) : (
+              <div className="flex items-center justify-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-medium relative z-10 h-12">
+                <Loader2 className="w-5 h-5 animate-spin" /> 
+                Entering workspace...
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
+
       {/* Animated Background Orbs */}
       <motion.div
         animate={{ scale: [1, 1.1, 1], rotate: [0, 90, 0] }}
