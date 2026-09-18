@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Edit2, Trash2, X, Upload, Link, FileText, ExternalLink, Tag, ChevronDown, Check } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Upload, Link, FileText, ExternalLink, Tag, ChevronDown, Check, Lock } from 'lucide-react';
 import { ProjectDocument } from '../types';
 
 interface DocumentsHubProps {
@@ -9,6 +9,7 @@ interface DocumentsHubProps {
   restrictedMode: boolean;
   isOwner?: boolean;
   isViewerMode?: boolean;
+  canAccess?: boolean; // false for plain viewers who are not collaborators
 }
 
 export default function DocumentsHub({
@@ -17,6 +18,7 @@ export default function DocumentsHub({
   restrictedMode,
   isOwner = true,
   isViewerMode = false,
+  canAccess = true,
 }: DocumentsHubProps) {
   const [activeTabId, setActiveTabId] = useState<string>(() => documents[0]?.id || '');
   const [selectedLabel, setSelectedLabel] = useState<string>('All');
@@ -200,6 +202,21 @@ export default function DocumentsHub({
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-5 sm:p-6 rounded-3xl shadow-sm flex flex-col gap-6">
+
+      {/* Access Gate — shown to plain viewers who are not collaborators */}
+      {!canAccess ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center gap-5">
+          <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+            <Lock className="w-7 h-7 text-slate-400 dark:text-slate-500" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-700 dark:text-slate-300">Restricted Access</h3>
+            <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 max-w-xs">
+              Only collaborators can see the contents of this document library.
+            </p>
+          </div>
+        </div>
+      ) : (<>
       
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-850 pb-4">
         <div>
@@ -643,6 +660,7 @@ export default function DocumentsHub({
           </div>
         )}
       </AnimatePresence>
+      </>)}
     </div>
   );
 }

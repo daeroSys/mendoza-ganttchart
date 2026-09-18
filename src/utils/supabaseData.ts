@@ -13,7 +13,8 @@ export const mapDbTask = (dbTask: any): Task => ({
   color: dbTask.color,
   dependencies: dbTask.dependencies || [],
   sortOrder: dbTask.sort_order || 0,
-  description: dbTask.description
+  description: dbTask.description,
+  parentId: dbTask.parent_id || undefined
 });
 
 // Helper to map Frontend task to DB task
@@ -29,7 +30,8 @@ export const mapTaskToDb = (task: Task, projectId: string) => ({
   color: task.color,
   dependencies: task.dependencies,
   sort_order: task.sortOrder || 0,
-  description: task.description
+  description: task.description,
+  parent_id: task.parentId || null
 });
 
 export const fetchAllProfiles = async (): Promise<{ id: string, email: string, full_name: string }[]> => {

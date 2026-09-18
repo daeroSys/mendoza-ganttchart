@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Layers, 
   CheckCircle2, 
@@ -59,6 +59,7 @@ export default function App() {
 
   // Gantt-level state
   const [zoom, setZoom] = useState<ZoomLevel>('day');
+  const [collapsedTasks, setCollapsedTasks] = useState<Set<string>>(new Set());
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     try {
       const storedTheme = localStorage.getItem(STORAGE_THEME_KEY);
@@ -430,7 +431,7 @@ export default function App() {
   ).sort() as string[];
 
   // Filters
-  const filteredTasks = tasks.filter(task => {
+  const baseFilteredTasks = tasks.filter(task => {
     const matchesSearch = task.name.toLowerCase().includes(filters.search.toLowerCase()) ||
                           task.assignee.some(a => a.toLowerCase().includes(filters.search.toLowerCase()));
     const matchesPriority = filters.priority === 'All' || task.priority === filters.priority;
@@ -444,12 +445,57 @@ export default function App() {
         })
       : true;
     return matchesSearch && matchesPriority && matchesAssignee && matchesRoles;
-  }).sort((a, b) => {
-    if (a.sortOrder !== b.sortOrder) {
-      return (a.sortOrder || 0) - (b.sortOrder || 0);
-    }
-    return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
   });
+
+  // Hierarchical Sorting
+  const filteredTasks = useMemo(() => {
+    const childrenMap = new Map<string, Task[]>();
+    const topLevel: Task[] = [];
+    
+    // 1. Group tasks by parent
+    baseFilteredTasks.forEach(task => {
+      // Check if it's a child AND its parent is also in the baseFilteredTasks
+      if (task.parentId && baseFilteredTasks.some(t => t.id === task.parentId)) {
+        if (!childrenMap.has(task.parentId)) {
+          childrenMap.set(task.parentId, []);
+        }
+        childrenMap.get(task.parentId)!.push(task);
+      } else {
+        // If parent is missing or filtered out, treat as top-level so it doesn't disappear
+        topLevel.push(task);
+      }
+    });
+
+    // 2. Sorting function
+    const sortFn = (a: Task, b: Task) => {
+      if (a.sortOrder !== b.sortOrder) return (a.sortOrder || 0) - (b.sortOrder || 0);
+      return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+    };
+    
+    topLevel.sort(sortFn);
+    childrenMap.forEach(children => children.sort(sortFn));
+
+    // 3. Flatten preserving hierarchy and omitting collapsed children
+    const result: Task[] = [];
+    const addNode = (task: Task) => {
+      result.push(task);
+      if (!collapsedTasks.has(task.id) && childrenMap.has(task.id)) {
+        childrenMap.get(task.id)!.forEach(addNode);
+      }
+    };
+    
+    topLevel.forEach(addNode);
+    return result;
+  }, [baseFilteredTasks, collapsedTasks]);
+
+  const handleToggleTaskCollapse = (id: string) => {
+    setCollapsedTasks(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // Stats
   const totalTasksCount = tasks.length;
@@ -885,6 +931,8 @@ export default function App() {
                 timelineScrollRef={timelineScrollRef}
                 restrictedMode={restrictedMode}
                 personnel={personnel}
+                collapsedTasks={collapsedTasks}
+                onToggleTaskCollapse={handleToggleTaskCollapse}
                 onViewTaskDetails={(task) => {
                   setTaskToEdit(task);
                   setIsTaskDetailsOpen(true);
@@ -906,7 +954,9 @@ export default function App() {
               onUpdateTaskDates={handleUpdateTaskDates}
               timelineScrollRef={timelineScrollRef}
               restrictedMode={restrictedMode}
-              personnel={personnel}
+              personnel={activeProject?.personnel || []}
+              collapsedTasks={collapsedTasks}
+              onToggleTaskCollapse={handleToggleTaskCollapse}
               onViewTaskDetails={(task) => {
                 setTaskToEdit(task);
                 setIsTaskDetailsOpen(true);
@@ -942,6 +992,7 @@ export default function App() {
             restrictedMode={restrictedMode}
             isOwner={isGlobalOwner}
             isViewerMode={isViewerMode}
+            canAccess={userRole === 'owner' || userRole === 'collaborator'}
           />
         )}
 

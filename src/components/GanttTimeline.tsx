@@ -14,7 +14,9 @@ import {
   AlertTriangle,
   Circle,
   CheckCircle2,
-  GripVertical
+  GripVertical,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { Task, ZoomLevel, DragState } from '../types';
 import { COLOR_MAP } from '../data/defaultTasks';
@@ -44,6 +46,8 @@ interface GanttTimelineProps {
   onReorderTasks?: (sourceId: string, targetId: string) => void;
   onViewTaskDetails?: (task: Task) => void;
   personnel?: string[];
+  collapsedTasks?: Set<string>;
+  onToggleTaskCollapse?: (id: string) => void;
 }
 
 export default function GanttTimeline({
@@ -62,6 +66,8 @@ export default function GanttTimeline({
   onReorderTasks,
   onViewTaskDetails,
   personnel = [],
+  collapsedTasks = new Set(),
+  onToggleTaskCollapse,
 }: GanttTimelineProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -286,6 +292,9 @@ export default function GanttTimeline({
               };
 
               const isSelected = isNotifyMode && selectedTaskIds?.includes(task.id);
+              const isParent = tasks.some(t => t.parentId === task.id);
+              const isCollapsed = collapsedTasks.has(task.id);
+              const isSubtask = !!task.parentId;
 
               return (
                 <div 
@@ -319,7 +328,7 @@ export default function GanttTimeline({
                     setDraggedSidebarId(null);
                   }}
                   onDragEnd={() => setDraggedSidebarId(null)}
-                  className={`h-14 px-6 flex items-center justify-between gap-4 transition-colors cursor-pointer ${isNotifyMode ? 'hover:bg-slate-100 dark:hover:bg-slate-800/40' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'} ${draggedSidebarId === task.id ? 'opacity-50' : 'opacity-100'} select-none group`}
+                  className={`h-14 px-6 flex items-center justify-between gap-4 transition-colors cursor-pointer ${isNotifyMode ? 'hover:bg-slate-100 dark:hover:bg-slate-800/40' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'} ${draggedSidebarId === task.id ? 'opacity-50' : 'opacity-100'} select-none group ${isSubtask ? 'pl-10 lg:pl-12' : ''}`}
                   id={`side-row-${task.id}`}
                 >
                   <div className="flex-1 min-w-0 pr-1 flex items-center gap-3">
@@ -342,7 +351,18 @@ export default function GanttTimeline({
                     
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate flex items-center gap-1.5" title={task.name}>
-                        {!isNotifyMode && <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${COLOR_MAP[task.color]?.accent || 'bg-slate-500'}`} />}
+                        {isParent && (
+                          <span 
+                            className="shrink-0 p-0.5 -ml-1 mr-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-400 cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleTaskCollapse?.(task.id);
+                            }}
+                          >
+                            {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                          </span>
+                        )}
+                        {!isNotifyMode && !isParent && <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${COLOR_MAP[task.color]?.accent || 'bg-slate-500'}`} />}
                         <span className="truncate">{task.name}</span>
                       </p>
                       <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-400 font-mono">

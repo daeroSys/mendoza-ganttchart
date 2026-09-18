@@ -17,6 +17,7 @@ export interface Task {
   dependencies: string[]; // Parent Task IDs
   sortOrder?: number;
   description?: string;
+  parentId?: string; // Subtask relationship
 }
 
 export interface ActivityLog {
