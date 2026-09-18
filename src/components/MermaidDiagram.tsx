@@ -6,7 +6,7 @@ import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 mermaid.initialize({
   startOnLoad: false,
   securityLevel: 'loose',
-  theme: 'base',
+  theme: 'dark',
   themeVariables: {
     // Background
     background: 'transparent',
@@ -92,60 +92,89 @@ export default function MermaidDiagram({ chart }: MermaidDiagramProps) {
                 match.replace(/fill="[^"]*"/, 'fill="transparent"')
               );
 
-            // Fix text color for nodes that have a white/light background
+            // Robust check for light node backgrounds and force dark text on them
             try {
               const parser = new DOMParser();
               const doc = parser.parseFromString(cleaned, "image/svg+xml");
               
-              const isWhiteFill = (fill: string | null) => {
-                if (!fill) return false;
-                const f = fill.toLowerCase().replace(/\s/g, '');
-                return f === '#fff' || f === '#ffffff' || f === 'white' || f === 'rgb(255,255,255)' || f === 'rgba(255,255,255,1)';
+              const getLuminance = (r: number, g: number, b: number) => {
+                const [rs, gs, bs] = [r, g, b].map(c => {
+                  c = c / 255;
+                  return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+                });
+                return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
               };
-              
-              // Identify classes that have a white fill
+
+              const isLightColor = (colorStr: string | null) => {
+                if (!colorStr) return false;
+                const str = colorStr.trim().toLowerCase();
+                if (str === 'none' || str === 'transparent') return false;
+                if (str === 'white') return true;
+                if (str === 'black') return false;
+                
+                if (str.startsWith('#')) {
+                  let hex = str.slice(1);
+                  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+                  if (hex.length === 6) {
+                    const r = parseInt(hex.slice(0, 2), 16);
+                    const g = parseInt(hex.slice(2, 4), 16);
+                    const b = parseInt(hex.slice(4, 6), 16);
+                    return getLuminance(r, g, b) > 0.5;
+                  }
+                  return false;
+                }
+                
+                const rgbMatch = str.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+                if (rgbMatch) {
+                  return getLuminance(parseInt(rgbMatch[1], 10), parseInt(rgbMatch[2], 10), parseInt(rgbMatch[3], 10)) > 0.5;
+                }
+                
+                return false;
+              };
+
               const styleBlocks = doc.querySelectorAll('style');
-              const whiteClasses = new Set<string>();
+              const lightClasses = new Set<string>();
               styleBlocks.forEach(styleBlock => {
                 const cssText = styleBlock.textContent || '';
-                const regex = /\.([a-zA-Z0-9_-]+)\s*\{[^}]*fill:\s*([^;!}]+)[^}]*\}/gi;
+                const regex = /\.([a-zA-Z0-9_-]+)[^{]*\{[^}]*fill:\s*([^;!}]+)[^}]*\}/gi;
                 let match;
                 while ((match = regex.exec(cssText)) !== null) {
-                  if (isWhiteFill(match[2])) {
-                    whiteClasses.add(match[1]);
+                  if (isLightColor(match[2])) {
+                    lightClasses.add(match[1]);
                   }
                 }
               });
 
-              // Find all shapes and check their fill
               const shapes = doc.querySelectorAll('rect, circle, ellipse, polygon, path, use');
               shapes.forEach(shape => {
-                let hasWhiteBg = false;
-                
-                if (isWhiteFill(shape.getAttribute('fill'))) hasWhiteBg = true;
+                let hasLightBg = false;
+                if (isLightColor(shape.getAttribute('fill'))) hasLightBg = true;
                 
                 const styleAttr = shape.getAttribute('style') || '';
                 const styleFillMatch = styleAttr.match(/fill:\s*([^;!]+)/i);
-                if (styleFillMatch && isWhiteFill(styleFillMatch[1])) hasWhiteBg = true;
+                if (styleFillMatch && isLightColor(styleFillMatch[1])) hasLightBg = true;
                 
                 shape.classList.forEach(cls => {
-                  if (whiteClasses.has(cls)) hasWhiteBg = true;
+                  if (lightClasses.has(cls)) hasLightBg = true;
                 });
                 
-                if (hasWhiteBg && shape.parentElement) {
-                  const texts = shape.parentElement.querySelectorAll('text, span, div, p, foreignObject');
-                  texts.forEach(t => {
-                    const currentStyle = t.getAttribute('style') || '';
-                    t.setAttribute('style', currentStyle + ' color: #0f172a !important; fill: #0f172a !important;');
-                    
-                    if (t.tagName.toLowerCase() === 'foreignobject') {
-                       const innerElements = t.querySelectorAll('div, span, p, text');
-                       innerElements.forEach(inner => {
-                          const innerStyle = inner.getAttribute('style') || '';
-                          inner.setAttribute('style', innerStyle + ' color: #0f172a !important; fill: #0f172a !important;');
-                       });
-                    }
-                  });
+                if (hasLightBg) {
+                  let container = shape.closest('.node, .cluster, .edgeLabel, .actor');
+                  if (!container) container = shape.parentElement;
+                  
+                  if (container) {
+                    const texts = container.querySelectorAll('text, span, div, p, foreignObject');
+                    texts.forEach(t => {
+                      const currentStyle = t.getAttribute('style') || '';
+                      t.setAttribute('style', currentStyle + ' color: #0f172a !important; fill: #0f172a !important;');
+                      
+                      const innerElements = t.querySelectorAll('*');
+                      innerElements.forEach(inner => {
+                        const innerStyle = inner.getAttribute('style') || '';
+                        inner.setAttribute('style', innerStyle + ' color: #0f172a !important; fill: #0f172a !important;');
+                      });
+                    });
+                  }
                 }
               });
               
