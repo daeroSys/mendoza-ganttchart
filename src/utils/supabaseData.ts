@@ -44,26 +44,37 @@ export const fetchAllProfiles = async (): Promise<{ id: string, email: string, f
 };
 
 export const fetchAllProjects = async (): Promise<Project[]> => {
-  const { data, error } = await supabase.from('projects').select('*');
-  if (error) {
-    console.error('Error fetching projects:', error);
+  const [projectsRes, tasksRes] = await Promise.all([
+    supabase.from('projects').select('*'),
+    supabase.from('tasks').select('*')
+  ]);
+
+  if (projectsRes.error) {
+    console.error('Error fetching projects:', projectsRes.error);
     return [];
   }
-  return data.map(p => ({
-    id: p.id,
-    name: p.name,
-    createdAt: p.created_at,
-    tag: p.tag,
-    tasks: [],
-    personnel: p.personnel || [],
-    availableRoles: p.available_roles || [],
-    roles: p.roles || {},
-    logs: [],
-    diagrams: [],
-    documents: (p.documents || []) as ProjectDocument[],
-    shareToken: p.share_token,
-    collaborators: p.collaborators || []
-  }));
+
+  const allTasks = tasksRes.data || [];
+
+  return projectsRes.data.map(p => {
+    const projectTasks = allTasks.filter(t => t.project_id === p.id);
+    
+    return {
+      id: p.id,
+      name: p.name,
+      createdAt: p.created_at,
+      tag: p.tag,
+      tasks: projectTasks.map(mapDbTask),
+      personnel: p.personnel || [],
+      availableRoles: p.available_roles || [],
+      roles: p.roles || {},
+      logs: [],
+      diagrams: [],
+      documents: (p.documents || []) as ProjectDocument[],
+      shareToken: p.share_token,
+      collaborators: p.collaborators || []
+    };
+  });
 };
 
 export const fetchProjectDetails = async (projectId: string): Promise<Project | null> => {

@@ -160,18 +160,37 @@ export default function HomePage({
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-200 font-sans mesh-gradient" id="homepage-viewport">
 
       {/* Header */}
-      <header className="border-b border-slate-200/70 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-30" id="homepage-header">
-        <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="p-3 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-2xl text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-950/50" id="homepage-logo">
-              <Calendar className="w-6 h-6" />
+      <header className="relative border-b border-slate-200/40 dark:border-slate-800/50 bg-white/60 dark:bg-slate-950/50 backdrop-blur-2xl sticky top-0 z-30 supports-[backdrop-filter]:bg-white/40 supports-[backdrop-filter]:dark:bg-slate-950/40" id="homepage-header">
+        <div className="absolute inset-x-0 -bottom-[1px] h-[1px] bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent"></div>
+        <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between relative">
+          <div className="flex items-center gap-4">
+            <div className="relative group" id="homepage-logo">
+              <img 
+                src="/website%20logo.png" 
+                alt="Doza Logo" 
+                className="w-14 h-auto object-contain transform group-hover:scale-105 transition-transform duration-500" 
+              />
             </div>
             <div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50 font-display" id="homepage-title">
-                Daero's Gantt Chart Repo
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-sans mt-0.5">
-                Manage and visualize all your project timelines in one place.
+              <div className="drop-shadow-[0_0_8px_rgba(99,102,241,0.4)]">
+                <div 
+                  className="h-6 w-32 bg-gradient-to-r from-indigo-600 to-violet-600 dark:from-indigo-400 dark:to-violet-400"
+                  style={{ 
+                    WebkitMaskImage: 'url(/logo-transparent.png)', 
+                    WebkitMaskSize: 'contain', 
+                    WebkitMaskRepeat: 'no-repeat', 
+                    WebkitMaskPosition: 'left center',
+                    maskImage: 'url(/logo-transparent.png)',
+                    maskSize: 'contain',
+                    maskRepeat: 'no-repeat',
+                    maskPosition: 'left center'
+                  }}
+                  title="Daero Wordmark"
+                  id="homepage-title"
+                />
+              </div>
+              <p className="text-[10px] font-black font-mono tracking-widest uppercase mt-1 opacity-90 drop-shadow-[0_0_8px_rgba(99,102,241,0.3)] bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600 dark:from-indigo-400 dark:to-violet-400">
+                Next-Gen Workspace
               </p>
             </div>
           </div>
@@ -179,30 +198,34 @@ export default function HomePage({
             {/* Theme Toggle */}
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="p-2.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 shadow-xs flex items-center justify-center cursor-pointer transition-colors"
+              className="relative p-2.5 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 border border-slate-200/50 dark:border-slate-700/50 rounded-xl bg-white/50 dark:bg-slate-900/50 shadow-xs flex items-center justify-center cursor-pointer transition-all hover:border-indigo-500/30 hover:shadow-[0_0_15px_rgba(99,102,241,0.2)] group overflow-hidden"
               title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
               id="homepage-theme-toggle"
             >
-              {darkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5" />}
+              <div className="absolute inset-0 bg-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              {darkMode ? <Sun className="w-5 h-5 text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.5)] relative z-10" /> : <Moon className="w-5 h-5 relative z-10" />}
             </button>
             {/* Log Out */}
             <button
               onClick={onLogout}
-              className="p-2.5 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 shadow-xs flex items-center justify-center cursor-pointer transition-colors"
+              className="relative p-2.5 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 border border-slate-200/50 dark:border-slate-700/50 rounded-xl bg-white/50 dark:bg-slate-900/50 shadow-xs flex items-center justify-center cursor-pointer transition-all hover:border-rose-500/30 hover:shadow-[0_0_15px_rgba(225,29,72,0.2)] group overflow-hidden"
               title="Log Out"
               id="btn-logout-home"
             >
-              <LogOut className="w-5 h-5" />
+              <div className="absolute inset-0 bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <LogOut className="w-5 h-5 relative z-10" />
             </button>
             {/* Create New - Owner Only */}
             {isOwner && (
               <button
                 onClick={() => { setShowCreateModal(true); setNewProjectName(''); setCreateError(''); }}
-                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-950/40 cursor-pointer transition-all active:scale-98"
+                className="relative inline-flex items-center gap-2 px-6 py-2.5 text-sm font-bold tracking-wide rounded-xl bg-slate-900 dark:bg-indigo-500 text-white shadow-lg shadow-indigo-950/20 dark:shadow-indigo-500/20 cursor-pointer transition-all hover:scale-105 active:scale-95 group overflow-hidden border border-slate-700/50 dark:border-indigo-400/50"
                 id="btn-create-project"
               >
-                <Plus className="w-4 h-4" />
-                <span>New Project</span>
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-violet-500 dark:from-indigo-400 dark:to-violet-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.4)_0%,transparent_50%)] scale-150 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-md"></div>
+                <Plus className="w-4 h-4 relative z-10" />
+                <span className="relative z-10 font-sans">New Project</span>
               </button>
             )}
           </div>
