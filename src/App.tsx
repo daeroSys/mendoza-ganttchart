@@ -22,6 +22,7 @@ import ExportModal from './components/ExportModal';
 import UserIdentityModal from './components/UserIdentityModal';
 import ActivityLogPanel from './components/ActivityLogPanel';
 import DiagramsHub from './components/DiagramsHub';
+import DocumentsHub from './components/DocumentsHub';
 import { exportElementAsImage } from './utils/exportUtils';
 import { supabase } from './utils/supabaseClient';
 import Auth from './components/Auth';
@@ -98,8 +99,8 @@ export default function App() {
   const [staticGanttImage, setStaticGanttImage] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
-  // Diagram View Toggle
-  const [isDiagramView, setIsDiagramView] = useState(false);
+  // Module View Toggle
+  const [activeModule, setActiveModule] = useState<'gantt' | 'diagrams' | 'documents'>('gantt');
 
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -299,6 +300,26 @@ export default function App() {
       });
     }
     logAction('project_update', details);
+  };
+
+  const handleUpdateDocuments = async (newDocuments: ProjectDocument[], details: string) => {
+    if (!activeProjectId || !activeProject) return;
+    
+    // Optimistic update
+    const updatedProject = { ...activeProject, documents: newDocuments };
+    setProjects(prev => prev.map(p => p.id === activeProjectId ? updatedProject : p));
+
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ documents: newDocuments })
+        .eq('id', activeProjectId);
+        
+      if (error) throw error;
+      logAction('project_update', details);
+    } catch (err) {
+      console.error("Failed to sync documents", err);
+    }
   };
 
   const handleLogoUpdate = async (logoBase64: string) => {
@@ -752,8 +773,8 @@ export default function App() {
         onOpenExport={() => setIsExportOpen(true)}
         darkMode={darkMode}
         setDarkMode={setDarkMode}
-        isDiagramView={isDiagramView}
-        onToggleView={() => setIsDiagramView(!isDiagramView)}
+        activeModule={activeModule}
+        setActiveModule={setActiveModule}
         title={activeProject?.name || 'Project Gantt Chart'}
         subtitle={activeProject?.tag || "Visualize, orchestrate, and trace project milestones and tasks interactively."}
         logoUrl={activeProject?.logoUrl || (activeProjectId ? projectLogos[activeProjectId] : undefined)}
@@ -777,7 +798,7 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-6 mt-6 flex flex-col gap-6" id="dashboard-main-view">
         
         {/* KPI Stats Cards Strip */}
-        {!isViewerMode && !isDiagramView && (
+        {!isViewerMode && activeModule === 'gantt' && (
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="kpi-dashboard-grid">
           
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl flex items-center gap-4 shadow-2xs">
@@ -831,7 +852,7 @@ export default function App() {
         )}
 
         {/* Primary Timeline Section Dashboard Canvas */}
-        {!isDiagramView && (
+        {activeModule === 'gantt' && (
           isViewerMode ? (
             <section className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4 sm:p-6 rounded-3xl shadow-sm overflow-hidden flex items-center justify-center min-h-[300px]" id="gantt-chart-static-section">
             {isGeneratingImage ? (
@@ -903,13 +924,24 @@ export default function App() {
         ))}
 
         {/* Project Architecture & Design Diagrams Hub */}
-        {isDiagramView && (
+        {activeModule === 'diagrams' && (
           <DiagramsHub
             diagrams={activeProject?.diagrams || []}
             onUpdateDiagrams={handleUpdateDiagrams}
             restrictedMode={restrictedMode}
             isViewerMode={isViewerMode}
             isOwner={isGlobalOwner}
+          />
+        )}
+
+        {/* Project Documents Hub */}
+        {activeModule === 'documents' && (
+          <DocumentsHub
+            documents={activeProject?.documents || []}
+            onUpdateDocuments={handleUpdateDocuments}
+            restrictedMode={restrictedMode}
+            isOwner={isGlobalOwner}
+            isViewerMode={isViewerMode}
           />
         )}
 

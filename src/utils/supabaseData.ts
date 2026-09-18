@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { Project, Task, ProjectDiagram, ActivityLog } from '../types';
+import { Project, Task, ProjectDiagram, ProjectDocument, ActivityLog } from '../types';
 
 // Helper to map DB task to Frontend task
 export const mapDbTask = (dbTask: any): Task => ({
@@ -53,11 +53,12 @@ export const fetchAllProjects = async (): Promise<Project[]> => {
     createdAt: p.created_at,
     tag: p.tag,
     tasks: [],
-    personnel: p.personnel || [], // Assuming we add personnel column later
+    personnel: p.personnel || [],
     availableRoles: p.available_roles || [],
     roles: p.roles || {},
     logs: [],
     diagrams: [],
+    documents: (p.documents || []) as ProjectDocument[],
     shareToken: p.share_token,
     collaborators: p.collaborators || []
   }));
@@ -112,6 +113,7 @@ export const fetchProjectDetails = async (projectId: string): Promise<Project | 
       type: d.type || 'image',
       mermaidCode: d.mermaid_code || undefined,
     })),
+    documents: (projRes.data.documents || []) as ProjectDocument[],
     logoUrl: undefined,
   };
 

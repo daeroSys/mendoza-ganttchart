@@ -36,6 +36,16 @@ export interface ProjectDiagram {
   mermaidCode?: string;
 }
 
+export interface ProjectDocument {
+  id: string;
+  title: string;
+  description?: string;
+  date?: string; // ISO date string YYYY-MM-DD
+  pdfDataUrl?: string;
+  externalLink?: string;
+  labels: string[];
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -47,6 +57,7 @@ export interface Project {
   tag?: string;
   logs?: ActivityLog[];
   diagrams?: ProjectDiagram[];
+  documents?: ProjectDocument[];
   shareToken?: string;
   collaborators?: string[];
   logoUrl?: string;

@@ -22,6 +22,7 @@ import {
   Bell,
   Send,
   Check,
+  FileText,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ZoomLevel, FilterOptions, Priority } from '../types';
@@ -37,8 +38,8 @@ interface GanttChartHeaderProps {
   onOpenExport: () => void;
   darkMode: boolean;
   setDarkMode: (dark: boolean) => void;
-  isDiagramView?: boolean;
-  onToggleView: () => void;
+  activeModule: 'gantt' | 'diagrams' | 'documents';
+  setActiveModule: (module: 'gantt' | 'diagrams' | 'documents') => void;
   title?: string;
   subtitle?: string;
   logoUrl?: string;
@@ -69,8 +70,8 @@ export default function GanttChartHeader({
   onOpenExport,
   darkMode,
   setDarkMode,
-  isDiagramView = false,
-  onToggleView,
+  activeModule = 'gantt',
+  setActiveModule,
   title = 'Project Gantt Chart Planner',
   subtitle = 'Centralized Infrastructure, Decentralized Access',
   logoUrl,
@@ -225,24 +226,43 @@ export default function GanttChartHeader({
 
         {/* Action Controls Group: View Toggle, Importer, Exporters, Theme Toggle, Add Task */}
         <div className="flex flex-wrap items-center gap-2.5" id="header-action-row">
-          <button
-            onClick={onToggleView}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 shadow-xs cursor-pointer select-none transition-colors"
-            title={isDiagramView ? "View Gantt Chart" : "View Diagram"}
-            id="btn-toggle-view"
-          >
-            {isDiagramView ? (
-              <>
-                <Calendar className="w-4 h-4" />
-                <span>Gantt Chart</span>
-              </>
-            ) : (
-              <>
-                <Image className="w-4 h-4" />
-                <span>Diagram</span>
-              </>
-            )}
-          </button>
+          
+          {/* Module Switcher Segmented Control */}
+          <div className="flex p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold shadow-xs">
+            <button
+              onClick={() => setActiveModule('gantt')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer transition-all ${
+                activeModule === 'gantt'
+                  ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              <span className="hidden sm:inline">Gantt Chart</span>
+            </button>
+            <button
+              onClick={() => setActiveModule('diagrams')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer transition-all ${
+                activeModule === 'diagrams'
+                  ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <Image className="w-4 h-4" />
+              <span className="hidden sm:inline">Diagrams</span>
+            </button>
+            <button
+              onClick={() => setActiveModule('documents')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer transition-all ${
+                activeModule === 'documents'
+                  ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span className="hidden sm:inline">Documents</span>
+            </button>
+          </div>
 
 
 
@@ -368,7 +388,7 @@ export default function GanttChartHeader({
       </div>
 
       {/* Grid Filter Bar: Search, Filters, and Zoom Tabs */}
-      {!isViewerMode && !isDiagramView && (
+      {!isViewerMode && activeModule === 'gantt' && (
         <div className="flex flex-col gap-4 mt-6 xl:flex-row xl:items-center xl:justify-between bg-slate-50 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800/60" id="filter-wrapper-bar">
 
           {/* Dynamic Filters Area */}
