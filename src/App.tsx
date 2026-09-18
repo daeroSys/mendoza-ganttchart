@@ -9,7 +9,7 @@ import {
   CheckCircle2, 
   Hourglass
 } from 'lucide-react';
-import { Task, ZoomLevel, FilterOptions, Project, ProjectDiagram } from './types';
+import { Task, ZoomLevel, FilterOptions, Project, ProjectDiagram, ProjectDocument } from './types';
 import { calculateTimelineBounds, getDaysDiff, getPxPerDay, getTodayStr } from './utils/dateUtils';
 import GanttChartHeader from './components/GanttChartHeader';
 import GanttTimeline from './components/GanttTimeline';
