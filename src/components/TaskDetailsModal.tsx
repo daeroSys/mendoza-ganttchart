@@ -13,6 +13,7 @@ interface TaskDetailsModalProps {
   onUpdateProgress?: (taskId: string, progress: number) => void;
   roles?: Record<string, string[]>;
   isOwner?: boolean;
+  allTasks?: Task[];
 }
 
 export default function TaskDetailsModal({ 
@@ -25,6 +26,7 @@ export default function TaskDetailsModal({
   onUpdateProgress,
   roles = {},
   isOwner = false,
+  allTasks = [],
 }: TaskDetailsModalProps) {
   const [progress, setProgress] = useState(0);
   const [hoverPercent, setHoverPercent] = useState<number | null>(null);
@@ -57,7 +59,8 @@ export default function TaskDetailsModal({
            (userName && aLower === userName.toLowerCase());
   });
 
-  const canEditProgress = isOwner || isAssigned;
+  const hasChildren = task ? allTasks.some(t => t.parentId === task.id) : false;
+  const canEditProgress = (isOwner || isAssigned) && !hasChildren;
 
   // Format date helper
   const formatDate = (dateString: string) => {
@@ -170,22 +173,25 @@ export default function TaskDetailsModal({
           </div>
 
           {/* Progress Section (If Assigned or Owner) */}
-          {canEditProgress && (
+          {(isOwner || isAssigned) && (
             <div className="p-6 border-t border-slate-100 dark:border-slate-800/85 bg-slate-50/50 dark:bg-slate-900/50">
               <label className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase flex justify-between mb-3">
-                <span>Update Progress</span>
+                <span className="flex items-center gap-2">
+                  Update Progress
+                  {hasChildren && <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[9px] rounded-md normal-case font-bold tracking-normal">Auto-calculated from subtasks</span>}
+                </span>
                 <span className="text-indigo-600 dark:text-indigo-400">{progress}%</span>
               </label>
-              <div className="relative flex items-center w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg group">
+              <div className={`relative flex items-center w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg group ${!canEditProgress ? 'opacity-60' : ''}`}>
                 <div 
                   className="absolute left-0 top-0 h-full bg-indigo-600 dark:bg-indigo-500 rounded-lg pointer-events-none" 
                   style={{ width: `${progress}%` }} 
                 />
                 <div 
-                  className="absolute top-1/2 -mt-2 w-4 h-4 bg-indigo-600 dark:bg-indigo-500 rounded-full shadow-md border-2 border-white dark:border-slate-800 pointer-events-none group-active:scale-125 group-hover:bg-indigo-500 transition-all z-0"
+                  className={`absolute top-1/2 -mt-2 w-4 h-4 bg-indigo-600 dark:bg-indigo-500 rounded-full shadow-md border-2 border-white dark:border-slate-800 pointer-events-none transition-all z-0 ${canEditProgress ? 'group-active:scale-125 group-hover:bg-indigo-500' : ''}`}
                   style={{ left: `calc(${progress}% - 8px)` }}
                 />
-                {hoverPercent !== null && (
+                {hoverPercent !== null && canEditProgress && (
                   <div 
                     className="absolute -top-8 -translate-x-1/2 bg-slate-800 dark:bg-slate-700 text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none z-20 whitespace-nowrap"
                     style={{ left: `${hoverPercent}%` }}
@@ -200,10 +206,11 @@ export default function TaskDetailsModal({
                   min="0"
                   max="100"
                   value={progress}
+                  disabled={!canEditProgress}
                   onChange={e => setProgress(Number(e.target.value))}
                   onMouseMove={handleSliderMouseMove}
                   onMouseLeave={handleSliderMouseLeave}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  className={`absolute inset-0 w-full h-full opacity-0 z-10 ${canEditProgress ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                 />
               </div>
             </div>

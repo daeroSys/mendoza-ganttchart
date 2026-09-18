@@ -523,20 +523,71 @@ export default function App() {
     setIsModalOpen(true);
   };
 
+  const recalculateTreeProgress = (currentTasks: Task[]): { newTasks: Task[], changedTasks: Task[] } => {
+    const newTasks = [...currentTasks];
+    const changedTasks: Task[] = [];
+    let changesMade = false;
+
+    const childrenMap = new Map<string, Task[]>();
+    newTasks.forEach(t => {
+      if (t.parentId) {
+        if (!childrenMap.has(t.parentId)) childrenMap.set(t.parentId, []);
+        childrenMap.get(t.parentId)!.push(t);
+      }
+    });
+
+    const calculateForTask = (taskId: string): number | null => {
+      const children = childrenMap.get(taskId);
+      if (!children || children.length === 0) return null;
+
+      let totalProgress = 0;
+      for (const child of children) {
+        const childProgress = calculateForTask(child.id) ?? child.progress;
+        totalProgress += childProgress;
+      }
+      
+      const newProgress = Math.round(totalProgress / children.length);
+      const taskIndex = newTasks.findIndex(t => t.id === taskId);
+      if (taskIndex !== -1 && newTasks[taskIndex].progress !== newProgress) {
+        newTasks[taskIndex] = { ...newTasks[taskIndex], progress: newProgress };
+        changedTasks.push(newTasks[taskIndex]);
+        changesMade = true;
+      }
+      return newProgress;
+    };
+
+    // Find all roots and recalculate
+    const roots = newTasks.filter(t => !t.parentId || !newTasks.some(p => p.id === t.parentId));
+    roots.forEach(root => calculateForTask(root.id));
+
+    return { newTasks, changedTasks };
+  };
+
   const handleDeleteTask = async (id: string) => {
     const taskToDelete = tasks.find(t => t.id === id);
     if (!taskToDelete) return;
     
     // Optimistic UI
-    const updatedTasks = tasks.filter(t => t.id !== id).map(task => ({
+    let updatedTasks = tasks.filter(t => t.id !== id).map(task => ({
       ...task,
       dependencies: task.dependencies ? task.dependencies.filter(depId => depId !== id) : [],
     }));
+    
+    // Auto-recalculate parent tasks progress
+    const { newTasks, changedTasks } = recalculateTreeProgress(updatedTasks);
+    updatedTasks = newTasks;
+
     if (activeProject) {
       setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, tasks: updatedTasks } : p));
     }
 
     await supabase.from('tasks').delete().eq('id', id);
+    
+    if (changedTasks.length > 0 && activeProjectId) {
+      const updates = changedTasks.map(t => mapTaskToDb(t, activeProjectId));
+      await supabase.from('tasks').upsert(updates);
+    }
+    
     logAction('task_delete', `deleted task "${taskToDelete.name}"`);
   };
   const handleUpdateTaskProgress = async (taskId: string, newProgress: number) => {
@@ -544,13 +595,23 @@ export default function App() {
     if (!task) return;
     
     // Optimistic UI
-    const updatedTasks = tasks.map(t => t.id === taskId ? { ...t, progress: newProgress } : t);
+    let updatedTasks = tasks.map(t => t.id === taskId ? { ...t, progress: newProgress } : t);
+    
+    // Auto-recalculate parent tasks progress
+    const { newTasks, changedTasks } = recalculateTreeProgress(updatedTasks);
+    updatedTasks = newTasks;
+
     if (activeProject) {
       setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, tasks: updatedTasks } : p));
     }
 
     // DB Update
     await supabase.from('tasks').update({ progress: newProgress }).eq('id', taskId);
+    
+    if (changedTasks.length > 0 && activeProjectId) {
+      const updates = changedTasks.map(t => mapTaskToDb(t, activeProjectId));
+      await supabase.from('tasks').upsert(updates);
+    }
     
     // Log
     logAction('task_update', `Updated progress of task "${task.name}" to ${newProgress}%`);
@@ -566,12 +627,21 @@ export default function App() {
       const oldTask = tasks.find(t => t.id === finalTask.id);
       
       // Optimistic UI
-      const updatedTasks = tasks.map(t => (t.id === finalTask.id ? finalTask : t));
+      let updatedTasks = tasks.map(t => (t.id === finalTask.id ? finalTask : t));
+      
+      const { newTasks, changedTasks } = recalculateTreeProgress(updatedTasks);
+      updatedTasks = newTasks;
+
       if (activeProject) {
         setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, tasks: updatedTasks } : p));
       }
 
       await supabase.from('tasks').update(mapTaskToDb(finalTask, activeProjectId!)).eq('id', finalTask.id);
+      
+      if (changedTasks.length > 0 && activeProjectId) {
+        const updates = changedTasks.map(t => mapTaskToDb(t, activeProjectId));
+        await supabase.from('tasks').upsert(updates);
+      }
       
       let logDetails = `modified details of task "${finalTask.name}"`;
       if (oldTask && oldTask.progress !== finalTask.progress) {
@@ -583,11 +653,22 @@ export default function App() {
       finalTask = { ...taskData, id: `t-${Date.now()}`, sortOrder: maxSortOrder + 1 } as Task;
       
       // Optimistic UI
+      let updatedTasks = [...tasks, finalTask];
+      
+      const { newTasks, changedTasks } = recalculateTreeProgress(updatedTasks);
+      updatedTasks = newTasks;
+
       if (activeProject) {
-        setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, tasks: [...p.tasks, finalTask] } : p));
+        setProjects(prev => prev.map(p => p.id === activeProjectId ? { ...p, tasks: updatedTasks } : p));
       }
 
       await supabase.from('tasks').insert(mapTaskToDb(finalTask, activeProjectId!));
+      
+      if (changedTasks.length > 0 && activeProjectId) {
+        const updates = changedTasks.map(t => mapTaskToDb(t, activeProjectId));
+        await supabase.from('tasks').upsert(updates);
+      }
+
       logAction('task_create', `created new task "${finalTask.name}"`);
     }
 
@@ -1024,6 +1105,7 @@ export default function App() {
         onUpdateProgress={handleUpdateTaskProgress}
         roles={activeProject?.roles || {}}
         isOwner={isGlobalOwner}
+        allTasks={tasks}
       />
 
       {/* Personnel Management Modal */}

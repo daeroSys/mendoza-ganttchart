@@ -125,7 +125,9 @@ export default function TaskModal({
            (userName && aLower === userName.toLowerCase());
   });
   
-  const canEditProgress = !restrictedMode || isAssigned;
+  const hasChildren = taskToEdit ? allTasks.some(t => t.parentId === taskToEdit.id) : false;
+  
+  const canEditProgress = (!restrictedMode || isAssigned) && !hasChildren;
   const canEditAnythingElse = !restrictedMode;
 
   // Filter possible dependencies - prevent self-dependency
@@ -461,7 +463,10 @@ export default function TaskModal({
             {/* Beautiful Progress Slider */}
             <div className="mb-4" id="grp-progress">
               <div className="flex justify-between items-center mb-1.5">
-                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">Progress Completed</label>
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase flex items-center gap-2">
+                  Progress Completed
+                  {hasChildren && <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[9px] rounded-md normal-case font-bold tracking-normal">Auto-calculated from subtasks</span>}
+                </label>
                 <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">{progress}%</span>
               </div>
               <div className="flex items-center gap-3">
