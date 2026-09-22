@@ -102,13 +102,12 @@ export const calculateTimelineBounds = (
   if (zoom === 'day') {
     // No padding before or after the first/last tasks for day view
   } else if (zoom === 'week') {
-    // Align minDate to Sunday to keep week grid clean, no extra padding weeks
-    const day = minDate.getDay();
-    minDate.setDate(minDate.getDate() - day);
-
-    // Align maxDate to Saturday
-    const maxDay = maxDate.getDay();
-    maxDate.setDate(maxDate.getDate() + (6 - maxDay));
+    // Align maxDate so that the timeline covers full 7-day increments from minDate
+    const diff = getDaysDiff(formatLocalDate(minDate), formatLocalDate(maxDate));
+    const remainder = diff % 7;
+    if (remainder !== 6) {
+      maxDate.setDate(maxDate.getDate() + (6 - remainder));
+    }
   } else {
     // Align minDate to start of month to keep month grid clean, no extra padding months
     minDate.setDate(1); 
@@ -208,10 +207,8 @@ export const generateHeaderCells = (
     const pxPerWeek = pxPerDay * 7;
 
     let current = new Date(start);
-    // Align starting date to Sunday to keep weeks clean
-    const startDay = current.getDay();
-    current.setDate(current.getDate() - startDay);
-
+    // Weeks start precisely on the project's minDate, so no snapping to Sunday
+    
     let currentMonthStr = '';
     let currentMonthWidth = 0;
     let currentMonthStart: Date | null = null;

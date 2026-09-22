@@ -590,12 +590,16 @@ export default function GanttTimeline({
                       id={`bar-drag-middle-${task.id}`}
                     >
                       <div className="w-full flex items-center justify-between pointer-events-none" id={`bar-meta-content-${task.id}`}>
-                        <span className={`text-[11px] font-bold ${isSelected ? 'text-white' : mapping.text} truncate max-w-[85%] truncate`}>
-                          {task.name}
-                        </span>
-                        <span className={`text-[9px] font-bold ${isSelected ? 'text-indigo-700' : mapping.text} font-mono shrink-0 bg-white/70 dark:bg-slate-900/60 px-1 py-0.2 rounded`}>
-                          {task.progress}%
-                        </span>
+                        {barWidth > 40 && (
+                          <span className={`text-[11px] font-bold ${isSelected ? 'text-white' : mapping.text} truncate ${barWidth < 80 ? 'max-w-full' : 'max-w-[85%]'}`}>
+                            {task.name}
+                          </span>
+                        )}
+                        {barWidth > 80 && (
+                          <span className={`text-[9px] font-bold ${isSelected ? 'text-indigo-700' : mapping.text} font-mono shrink-0 bg-white/70 dark:bg-slate-900/60 px-1 py-0.2 rounded`}>
+                            {task.progress}%
+                          </span>
+                        )}
                       </div>
 
                       {/* Floating hover date-range bubble utility */}

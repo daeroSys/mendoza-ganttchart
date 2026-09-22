@@ -21,7 +21,7 @@ export default function DocumentsHub({
   canAccess = true,
 }: DocumentsHubProps) {
   const [activeTabId, setActiveTabId] = useState<string>(() => documents[0]?.id || '');
-  const [selectedLabel, setSelectedLabel] = useState<string>('All');
+  const [selectedLabel, setSelectedLabel] = useState<string>('Main');
   
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
