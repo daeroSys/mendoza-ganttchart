@@ -18,6 +18,7 @@ export interface Task {
   sortOrder?: number;
   description?: string;
   parentId?: string; // Subtask relationship
+  completedDate?: string; // YYYY-MM-DD
 }
 
 export interface ActivityLog {

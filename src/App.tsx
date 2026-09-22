@@ -483,7 +483,19 @@ export default function App() {
     // 3. Flatten preserving hierarchy and omitting collapsed children
     const result: Task[] = [];
     const addNode = (task: Task) => {
-      result.push(task);
+      let finalTask = task;
+      if (task.progress === 100 && !task.completedDate) {
+        const log = activeProject?.logs?.find(l => 
+          (l.actionType === 'task_update' || l.actionType === 'task_create') && 
+          l.details.includes(`"${task.name}"`) && 
+          l.details.includes('100%')
+        );
+        if (log) {
+          finalTask = { ...task, completedDate: new Date(log.timestamp).toISOString().split('T')[0] };
+        }
+      }
+      
+      result.push(finalTask);
       if (!collapsedTasks.has(task.id) && childrenMap.has(task.id)) {
         childrenMap.get(task.id)!.forEach(addNode);
       }
@@ -491,7 +503,7 @@ export default function App() {
     
     topLevel.forEach(addNode);
     return result;
-  }, [baseFilteredTasks, collapsedTasks]);
+  }, [baseFilteredTasks, collapsedTasks, activeProject?.logs]);
 
   const handleToggleTaskCollapse = (id: string) => {
     setCollapsedTasks(prev => {

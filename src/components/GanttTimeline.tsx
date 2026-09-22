@@ -366,11 +366,19 @@ export default function GanttTimeline({
                         <span className="truncate">{task.name}</span>
                       </p>
                       <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-400 font-mono">
-                        <span className="truncate">👤 {(personnel.length > 0 && task.assignee.length === personnel.length) ? 'All Collaborators' : task.assignee.join(', ')}</span>
-                        <span>·</span>
-                        <span className={`px-1.5 py-0.2 border rounded-md font-sans text-[9px] font-bold uppercase tracking-wide ${priorityStyles[task.priority]}`}>
-                          {task.priority}
-                        </span>
+                        {task.progress === 100 ? (
+                          <span className="font-sans font-medium text-emerald-600 dark:text-emerald-400 truncate">
+                            Completed at: {task.completedDate || task.endDate}
+                          </span>
+                        ) : (
+                          <>
+                            <span className="truncate">👤 {(personnel.length > 0 && task.assignee.length === personnel.length) ? 'All Collaborators' : task.assignee.join(', ')}</span>
+                            <span>·</span>
+                            <span className={`px-1.5 py-0.2 border rounded-md font-sans text-[9px] font-bold uppercase tracking-wide ${priorityStyles[task.priority]}`}>
+                              {task.priority}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
