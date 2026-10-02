@@ -38,6 +38,9 @@ export default function DocumentsHub({
   const [pastedUrl, setPastedUrl] = useState('');
   const [showUrlField, setShowUrlField] = useState(false);
 
+  // Blob URL cache for rendering PDFs
+  const [blobUrls, setBlobUrls] = useState<Record<string, string>>({});
+
   // Label dropdown
   const [isLabelDropdownOpen, setIsLabelDropdownOpen] = useState(false);
   const labelDropdownRef = useRef<HTMLDivElement>(null);
@@ -76,6 +79,29 @@ export default function DocumentsHub({
 
   const activeDocument = filteredDocuments.find(d => d.id === activeTabId) || filteredDocuments[0] || null;
   const currentActiveId = activeDocument?.id || '';
+
+  // Generate and cache Blob URLs for PDFs to bypass browser data URI restrictions in iframes
+  useEffect(() => {
+    if (activeDocument?.pdfDataUrl && !blobUrls[activeDocument.id]) {
+      try {
+        const base64Data = activeDocument.pdfDataUrl.split(',')[1];
+        if (!base64Data) return;
+        
+        const byteString = atob(base64Data);
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+        const blob = new Blob([ab], { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+        
+        setBlobUrls(prev => ({ ...prev, [activeDocument.id]: blobUrl }));
+      } catch (err) {
+        console.error('Failed to create Blob URL for PDF', err);
+      }
+    }
+  }, [activeDocument?.pdfDataUrl, activeDocument?.id, blobUrls]);
 
   const handleOpenCreate = () => {
     setTitle('');
@@ -152,6 +178,14 @@ export default function DocumentsHub({
 
     if (file.type !== 'application/pdf') {
       alert('Please select a valid PDF file.');
+      return;
+    }
+
+    // PostgREST/Supabase typically limits JSON payload sizes to ~50MB on Pro plans, but ~1-5MB on some free tiers.
+    // Base64 encoding adds ~33% overhead. Restrict to 15MB to allow reasonably sized PDFs.
+    if (file.size > 15 * 1024 * 1024) {
+      alert('File too large. Please select a PDF smaller than 15MB. For larger documents, we recommend using the "Add Link" option with a Google Drive link.');
+      e.target.value = '';
       return;
     }
 
@@ -460,8 +494,8 @@ export default function DocumentsHub({
 
                 {activeDocument.pdfDataUrl ? (
                   <iframe 
-                    src={activeDocument.pdfDataUrl} 
-                    className="w-full h-[600px] flex-1 border-none"
+                    src={blobUrls[activeDocument.id] || ''} 
+                    className="w-full h-[600px] flex-1 border-none bg-slate-100 dark:bg-slate-900"
                     title={activeDocument.title}
                   />
                 ) : activeDocument.externalLink ? (

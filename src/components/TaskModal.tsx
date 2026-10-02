@@ -130,9 +130,12 @@ export default function TaskModal({
   const canEditProgress = (!restrictedMode || isAssigned) && !hasChildren;
   const canEditAnythingElse = !restrictedMode;
 
-  // Filter possible dependencies - prevent self-dependency
-  const availableDependencies = allTasks.filter(
+  const availableParentTasks = allTasks.filter(
     t => !taskToEdit || t.id !== taskToEdit.id
+  );
+
+  const availableDependencies = availableParentTasks.filter(
+    t => t.id !== parentId
   );
 
   const toggleAssignee = (personName: string) => {
@@ -192,7 +195,7 @@ export default function TaskModal({
       priority,
       assignee: finalAssignees,
       color,
-      dependencies,
+      dependencies: dependencies.filter(d => d !== parentId),
       description: description.trim(),
       parentId: parentId || undefined,
     });
@@ -399,7 +402,7 @@ export default function TaskModal({
                       {parentId === '' ? (
                         <span className="text-slate-500 dark:text-slate-400">None (Top-level Task)</span>
                       ) : (
-                        availableDependencies.find(t => t.id === parentId)?.name || 'Unknown Task'
+                        availableParentTasks.find(t => t.id === parentId)?.name || 'Unknown Task'
                       )}
                     </span>
                     <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isParentDropdownOpen ? 'rotate-180' : ''}`} />
@@ -427,9 +430,9 @@ export default function TaskModal({
                             {parentId === '' && <Check className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />}
                           </button>
                           
-                          {availableDependencies.length > 0 && <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2" />}
+                          {availableParentTasks.length > 0 && <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2" />}
                           
-                          {availableDependencies.map(task => {
+                          {availableParentTasks.map(task => {
                             const isSelected = parentId === task.id;
                             return (
                               <button

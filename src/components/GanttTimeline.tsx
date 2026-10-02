@@ -208,8 +208,13 @@ export default function GanttTimeline({
 
   // Compute dependency geometries
   filteredTasks.forEach((task, bIndex) => {
-    if (task.dependencies && task.dependencies.length > 0) {
-      task.dependencies.forEach(depId => {
+    const linesToDraw = new Set(task.dependencies || []);
+    if (task.parentId) {
+      linesToDraw.add(task.parentId);
+    }
+
+    if (linesToDraw.size > 0) {
+      linesToDraw.forEach(depId => {
         const aIndex = filteredTasks.findIndex(t => t.id === depId);
         if (aIndex !== -1) {
           const coordsA = getTaskCoordinates(depId, aIndex);
@@ -226,21 +231,20 @@ export default function GanttTimeline({
             if (x2 >= coordsA.xEnd) {
               // Forward flow: Succeeding task starts after or when prerequisite ends.
               // Offset horizontal elbows dynamically to prevent overlaps
-              const x1 = coordsA.xEnd;
               const spacing = 8 + ((aIndex + bIndex) % 4) * 6;
               const elbowX = x1 + spacing;
               path = `M ${x1} ${y1} L ${elbowX} ${y1} L ${elbowX} ${y2} L ${x2} ${y2}`;
             } else {
               // Backward/Overlapping flow: Succeeding task starts before prerequisite ends.
               // Start from the upper left side of the prerequisite task.
-              const x1 = coordsA.xStart;
+              const startX = coordsA.xStart;
               const startY = coordsA.y - 8; // Uppermost in the left side
               
               // Route to the left of the tasks to avoid overlapping the bars
               const spacing = 16 + (bIndex % 4) * 6;
-              const elbowX = Math.min(x1, x2) - spacing;
+              const elbowX = Math.min(startX, x2) - spacing;
               
-              path = `M ${x1} ${startY} L ${elbowX} ${startY} L ${elbowX} ${y2} L ${x2} ${y2}`;
+              path = `M ${startX} ${startY} L ${elbowX} ${startY} L ${elbowX} ${y2} L ${x2} ${y2}`;
             }
 
             // Colors match dependency line styles nicely

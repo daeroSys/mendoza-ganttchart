@@ -325,6 +325,7 @@ export default function App() {
       logAction('project_update', details);
     } catch (err) {
       console.error("Failed to sync documents", err);
+      alert("Failed to save the document to the server. If you attached a large PDF, it may exceed your database's maximum payload limit.");
     }
   };
 
