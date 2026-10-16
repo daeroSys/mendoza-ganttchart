@@ -4,9 +4,9 @@
  */
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { 
-  Layers, 
-  CheckCircle2, 
+import {
+  Layers,
+  CheckCircle2,
   Hourglass
 } from 'lucide-react';
 import { Task, ZoomLevel, FilterOptions, Project, ProjectDiagram, ProjectDocument } from './types';
@@ -32,12 +32,18 @@ import { sendTaskAssignmentEmail } from './utils/emailService';
 const STORAGE_ZOOM_KEY = 'gantt_planner_zoom';
 const STORAGE_THEME_KEY = 'gantt_theme_preference';
 
+// Emails with full owner access. Add more emails here to grant owner rights.
+const OWNER_EMAILS = [
+  'cedricpaulmendoza11@gmail.com',
+  'rixon.code@gmail.com',
+].map(e => e.toLowerCase());
+
 export type UserRole = 'owner' | 'collaborator' | 'viewer';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [showAuth, setShowAuth] = useState(true);
-  const isGlobalOwner = session?.user?.email === 'cedricpaulmendoza11@gmail.com';
+  const isGlobalOwner = OWNER_EMAILS.includes((session?.user?.email || '').toLowerCase());
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -140,7 +146,7 @@ export default function App() {
 
     const handleHashChange = async () => {
       const hash = window.location.hash;
-      
+
       if (hash.startsWith('#/invite/')) {
         const token = hash.replace('#/invite/', '');
         const { data, error } = await supabase.from('projects').select('id, collaborators').eq('share_token', token).single();
@@ -160,9 +166,9 @@ export default function App() {
         const data = await fetchProjectDetails(projectId);
         if (data) {
           const userName = session.user?.user_metadata?.full_name || session.user?.email?.split('@')[0] || 'User';
-          const isCollaborator = 
+          const isCollaborator =
             data.collaborators?.includes(session.user.id) ||
-            data.personnel?.some((p: string) => 
+            data.personnel?.some((p: string) =>
               p.toLowerCase() === session.user?.email?.toLowerCase() ||
               p.toLowerCase() === userName.toLowerCase()
             );
@@ -310,7 +316,7 @@ export default function App() {
 
   const handleUpdateDocuments = async (newDocuments: ProjectDocument[], details: string) => {
     if (!activeProjectId || !activeProject) return;
-    
+
     // Optimistic update
     const updatedProject = { ...activeProject, documents: newDocuments };
     setProjects(prev => prev.map(p => p.id === activeProjectId ? updatedProject : p));
@@ -320,7 +326,7 @@ export default function App() {
         .from('projects')
         .update({ documents: newDocuments })
         .eq('id', activeProjectId);
-        
+
       if (error) throw error;
       logAction('project_update', details);
     } catch (err) {
@@ -333,12 +339,12 @@ export default function App() {
     if (activeProjectId && activeProject) {
       localStorage.setItem(`project_logo_${activeProjectId}`, logoBase64);
       setProjectLogos(prev => ({ ...prev, [activeProjectId]: logoBase64 }));
-      
+
       const newRoles = { ...(activeProject.roles || {}), '__PROJECT_LOGO__': [logoBase64] };
       const updatedProject = { ...activeProject, roles: newRoles, logoUrl: logoBase64 };
-      
+
       setProjects(prev => prev.map(p => p.id === activeProjectId ? updatedProject : p));
-      
+
       try {
         await supabase.from('projects').update({ roles: newRoles }).eq('id', activeProjectId);
       } catch (err) {
@@ -410,7 +416,7 @@ export default function App() {
   useEffect(() => {
     if (isViewerMode && currentView === 'gantt' && tasks.length > 0) {
       setIsGeneratingImage(true);
-      
+
       const generateTimer = setTimeout(async () => {
         const el = document.getElementById('gantt-planner-container');
         if (el) {
@@ -439,16 +445,16 @@ export default function App() {
   // Filters
   const baseFilteredTasks = tasks.filter(task => {
     const matchesSearch = task.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-                          task.assignee.some(a => a.toLowerCase().includes(filters.search.toLowerCase()));
+      task.assignee.some(a => a.toLowerCase().includes(filters.search.toLowerCase()));
     const matchesPriority = filters.priority === 'All' || task.priority === filters.priority;
     const matchesAssignee = filters.assignee === 'All' || task.assignee.includes(filters.assignee);
     const matchesRoles = filters.roles && filters.roles.length > 0
       ? task.assignee.some(a => {
-          const personRoles = Array.isArray(activeProject?.roles?.[a]) 
-            ? activeProject.roles[a] 
-            : (activeProject?.roles?.[a] ? [activeProject.roles[a] as unknown as string] : ['Member']);
-          return personRoles.some(r => filters.roles.includes(r));
-        })
+        const personRoles = Array.isArray(activeProject?.roles?.[a])
+          ? activeProject.roles[a]
+          : (activeProject?.roles?.[a] ? [activeProject.roles[a] as unknown as string] : ['Member']);
+        return personRoles.some(r => filters.roles.includes(r));
+      })
       : true;
     return matchesSearch && matchesPriority && matchesAssignee && matchesRoles;
   });
@@ -457,7 +463,7 @@ export default function App() {
   const filteredTasks = useMemo(() => {
     const childrenMap = new Map<string, Task[]>();
     const topLevel: Task[] = [];
-    
+
     // 1. Group tasks by parent
     baseFilteredTasks.forEach(task => {
       // Check if it's a child AND its parent is also in the baseFilteredTasks
@@ -477,7 +483,7 @@ export default function App() {
       if (a.sortOrder !== b.sortOrder) return (a.sortOrder || 0) - (b.sortOrder || 0);
       return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
     };
-    
+
     topLevel.sort(sortFn);
     childrenMap.forEach(children => children.sort(sortFn));
 
@@ -486,22 +492,22 @@ export default function App() {
     const addNode = (task: Task) => {
       let finalTask = task;
       if (task.progress === 100 && !task.completedDate) {
-        const log = activeProject?.logs?.find(l => 
-          (l.actionType === 'task_update' || l.actionType === 'task_create') && 
-          l.details.includes(`"${task.name}"`) && 
+        const log = activeProject?.logs?.find(l =>
+          (l.actionType === 'task_update' || l.actionType === 'task_create') &&
+          l.details.includes(`"${task.name}"`) &&
           l.details.includes('100%')
         );
         if (log) {
           finalTask = { ...task, completedDate: new Date(log.timestamp).toISOString().split('T')[0] };
         }
       }
-      
+
       result.push(finalTask);
       if (!collapsedTasks.has(task.id) && childrenMap.has(task.id)) {
         childrenMap.get(task.id)!.forEach(addNode);
       }
     };
-    
+
     topLevel.forEach(addNode);
     return result;
   }, [baseFilteredTasks, collapsedTasks, activeProject?.logs]);
@@ -563,7 +569,7 @@ export default function App() {
         const childProgress = calculateForTask(child.id) ?? child.progress;
         totalProgress += childProgress;
       }
-      
+
       const newProgress = Math.round(totalProgress / children.length);
       const taskIndex = newTasks.findIndex(t => t.id === taskId);
       if (taskIndex !== -1 && newTasks[taskIndex].progress !== newProgress) {
@@ -584,13 +590,13 @@ export default function App() {
   const handleDeleteTask = async (id: string) => {
     const taskToDelete = tasks.find(t => t.id === id);
     if (!taskToDelete) return;
-    
+
     // Optimistic UI
     let updatedTasks = tasks.filter(t => t.id !== id).map(task => ({
       ...task,
       dependencies: task.dependencies ? task.dependencies.filter(depId => depId !== id) : [],
     }));
-    
+
     // Auto-recalculate parent tasks progress
     const { newTasks, changedTasks } = recalculateTreeProgress(updatedTasks);
     updatedTasks = newTasks;
@@ -600,21 +606,21 @@ export default function App() {
     }
 
     await supabase.from('tasks').delete().eq('id', id);
-    
+
     if (changedTasks.length > 0 && activeProjectId) {
       const updates = changedTasks.map(t => mapTaskToDb(t, activeProjectId));
       await supabase.from('tasks').upsert(updates);
     }
-    
+
     logAction('task_delete', `deleted task "${taskToDelete.name}"`);
   };
   const handleUpdateTaskProgress = async (taskId: string, newProgress: number) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
-    
+
     // Optimistic UI
     let updatedTasks = tasks.map(t => t.id === taskId ? { ...t, progress: newProgress } : t);
-    
+
     // Auto-recalculate parent tasks progress
     const { newTasks, changedTasks } = recalculateTreeProgress(updatedTasks);
     updatedTasks = newTasks;
@@ -625,12 +631,12 @@ export default function App() {
 
     // DB Update
     await supabase.from('tasks').update({ progress: newProgress }).eq('id', taskId);
-    
+
     if (changedTasks.length > 0 && activeProjectId) {
       const updates = changedTasks.map(t => mapTaskToDb(t, activeProjectId));
       await supabase.from('tasks').upsert(updates);
     }
-    
+
     // Log
     logAction('task_update', `Updated progress of task "${task.name}" to ${newProgress}%`);
   };
@@ -639,14 +645,14 @@ export default function App() {
   const handleSaveModalResult = async (taskData: Omit<Task, 'id'> & { id?: string }) => {
     let isUpdate = !!taskData.id;
     let finalTask: Task;
-    
+
     if (isUpdate) {
       finalTask = { ...taskData } as Task;
       const oldTask = tasks.find(t => t.id === finalTask.id);
-      
+
       // Optimistic UI
       let updatedTasks = tasks.map(t => (t.id === finalTask.id ? finalTask : t));
-      
+
       const { newTasks, changedTasks } = recalculateTreeProgress(updatedTasks);
       updatedTasks = newTasks;
 
@@ -655,12 +661,12 @@ export default function App() {
       }
 
       await supabase.from('tasks').update(mapTaskToDb(finalTask, activeProjectId!)).eq('id', finalTask.id);
-      
+
       if (changedTasks.length > 0 && activeProjectId) {
         const updates = changedTasks.map(t => mapTaskToDb(t, activeProjectId));
         await supabase.from('tasks').upsert(updates);
       }
-      
+
       let logDetails = `modified details of task "${finalTask.name}"`;
       if (oldTask && oldTask.progress !== finalTask.progress) {
         logDetails = `updated progress of task "${finalTask.name}" to ${finalTask.progress}%`;
@@ -669,10 +675,10 @@ export default function App() {
     } else {
       const maxSortOrder = tasks.length > 0 ? Math.max(...tasks.map(t => t.sortOrder || 0)) : -1;
       finalTask = { ...taskData, id: `t-${Date.now()}`, sortOrder: maxSortOrder + 1 } as Task;
-      
+
       // Optimistic UI
       let updatedTasks = [...tasks, finalTask];
-      
+
       const { newTasks, changedTasks } = recalculateTreeProgress(updatedTasks);
       updatedTasks = newTasks;
 
@@ -681,7 +687,7 @@ export default function App() {
       }
 
       await supabase.from('tasks').insert(mapTaskToDb(finalTask, activeProjectId!));
-      
+
       if (changedTasks.length > 0 && activeProjectId) {
         const updates = changedTasks.map(t => mapTaskToDb(t, activeProjectId));
         await supabase.from('tasks').upsert(updates);
@@ -695,9 +701,9 @@ export default function App() {
   const handleUpdateTaskDates = async (id: string, start: string, end: string) => {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
-    
+
     const updatedTask = { ...task, startDate: start, endDate: end };
-    
+
     // Optimistic UI
     const updatedTasks = tasks.map(t => (t.id === id ? updatedTask : t));
     if (activeProject) {
@@ -712,18 +718,18 @@ export default function App() {
     if (!activeProjectId) return;
     const sourceIndex = filteredTasks.findIndex(t => t.id === sourceId);
     const targetIndex = filteredTasks.findIndex(t => t.id === targetId);
-    
+
     if (sourceIndex === -1 || targetIndex === -1) return;
-    
+
     const newOrderedTasks = [...filteredTasks];
     const [movedTask] = newOrderedTasks.splice(sourceIndex, 1);
     newOrderedTasks.splice(targetIndex, 0, movedTask);
-    
+
     const updates = newOrderedTasks.map((t, index) => ({
       id: t.id,
       sort_order: index,
     }));
-    
+
     // Optimistic UI update
     setProjects(prev => prev.map(p => {
       if (p.id !== activeProjectId) return p;
@@ -736,7 +742,7 @@ export default function App() {
         })
       };
     }));
-    
+
     for (const update of updates) {
       await supabase.from('tasks').update({ sort_order: update.sort_order }).eq('id', update.id);
     }
@@ -750,7 +756,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `${activeProject?.name || 'project'}_gantt_export_${new Date().toISOString().slice(0,10)}.json`;
+    anchor.download = `${activeProject?.name || 'project'}_gantt_export_${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
@@ -770,7 +776,7 @@ export default function App() {
           // Add all tasks to DB
           const dbTasks = parsed.map(t => mapTaskToDb(t, activeProjectId));
           await supabase.from('tasks').insert(dbTasks);
-          
+
           // Refetch to sync UI properly
           const data = await fetchProjectDetails(activeProjectId);
           if (data) {
@@ -806,7 +812,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `${activeProject?.name || 'project'}_gantt_spreadsheet_${new Date().toISOString().slice(0,10)}.csv`;
+    anchor.download = `${activeProject?.name || 'project'}_gantt_spreadsheet_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
@@ -823,11 +829,11 @@ export default function App() {
 
   const handleNotifyNow = async () => {
     if (!activeProject || selectedTaskIdsForNotify.length === 0) return;
-    
+
     // Group selected tasks by assignee
     const selectedTasks = tasks.filter(t => selectedTaskIdsForNotify.includes(t.id));
     const assigneesMap: Record<string, Task[]> = {};
-    
+
     selectedTasks.forEach(task => {
       task.assignee.forEach(a => {
         if (!assigneesMap[a]) assigneesMap[a] = [];
@@ -836,21 +842,21 @@ export default function App() {
     });
 
     const profiles = await fetchAllProfiles();
-    
+
     Object.entries(assigneesMap).forEach(([assigneeName, usersSelectedTasks]) => {
       const profile = profiles.find(p => {
-         const fullNameMatch = p.full_name?.toLowerCase() === assigneeName.toLowerCase();
-         const emailMatch = p.email.toLowerCase() === assigneeName.toLowerCase();
-         const emailPrefixMatch = p.email.split('@')[0].toLowerCase() === assigneeName.toLowerCase();
-         return fullNameMatch || emailMatch || emailPrefixMatch;
+        const fullNameMatch = p.full_name?.toLowerCase() === assigneeName.toLowerCase();
+        const emailMatch = p.email.toLowerCase() === assigneeName.toLowerCase();
+        const emailPrefixMatch = p.email.split('@')[0].toLowerCase() === assigneeName.toLowerCase();
+        return fullNameMatch || emailMatch || emailPrefixMatch;
       });
-      
+
       if (profile) {
         const allTasksString = usersSelectedTasks.map(t => `- ${t.name}`).join('\n');
         sendTaskAssignmentEmail(
-          profile.email, 
-          profile.full_name || assigneeName, 
-          activeProject.name, 
+          profile.email,
+          profile.full_name || assigneeName,
+          activeProject.name,
           "Multiple Tasks", // Not used in this template since we switched to {{all_tasks}}
           allTasksString
         ).catch(err => console.error("Could not send assignment email", err));
@@ -871,11 +877,11 @@ export default function App() {
 
   const handleShareProject = () => {
     if (!activeProjectId || !activeProject) return;
-    
+
     // Fallback to project ID if shareToken isn't set up on the DB yet
     const token = activeProject.shareToken || activeProject.id;
     const shareUrl = `${window.location.origin}${window.location.pathname}#/invite/${token}`;
-    
+
     setShareUrlToDisplay(shareUrl);
     setIsShareModalOpen(true);
   };
@@ -906,7 +912,7 @@ export default function App() {
   // Gantt chart view
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200 font-sans pb-12 flex flex-col" id="applet-viewport">
-      
+
       {/* Dynamic Header Component */}
       <GanttChartHeader
         zoom={zoom}
@@ -941,84 +947,108 @@ export default function App() {
 
       {/* Main Stats Summary Strip & Content Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-6 mt-6 flex flex-col gap-6" id="dashboard-main-view">
-        
+
         {/* KPI Stats Cards Strip */}
         {!isViewerMode && activeModule === 'gantt' && (
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="kpi-dashboard-grid">
-          
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl flex items-center gap-4 shadow-2xs">
-            <div className="p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-xl">
-              <Layers className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500">Milestones Scope</p>
-              <h3 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 mt-0.5">{totalTasksCount} Active Tasks</h3>
-            </div>
-          </div>
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="kpi-dashboard-grid">
 
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl shadow-2xs">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-xl">
-                <CheckCircle2 className="w-5 h-5" />
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl flex items-center gap-4 shadow-2xs">
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-xl">
+                <Layers className="w-5 h-5" />
               </div>
-              <div className="flex-1">
-                <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500">Overall Progress</p>
-                <div className="flex items-baseline gap-2 mt-0.5">
-                  <h3 className="text-xl font-extrabold text-slate-800 dark:text-slate-100">{averageProgress}% Done</h3>
+              <div>
+                <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500">Milestones Scope</p>
+                <h3 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 mt-0.5">{totalTasksCount} Active Tasks</h3>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl shadow-2xs">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500">Overall Progress</p>
+                  <div className="flex items-baseline gap-2 mt-0.5">
+                    <h3 className="text-xl font-extrabold text-slate-800 dark:text-slate-100">{averageProgress}% Done</h3>
+                  </div>
                 </div>
               </div>
+              <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
+                <div className="bg-indigo-600 dark:bg-indigo-500 h-full rounded-full transition-all duration-300" style={{ width: `${averageProgress}%` }} />
+              </div>
             </div>
-            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden">
-              <div className="bg-indigo-600 dark:bg-indigo-500 h-full rounded-full transition-all duration-300" style={{ width: `${averageProgress}%` }} />
-            </div>
-          </div>
 
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl flex items-center gap-4 shadow-2xs">
-            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-xl">
-              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl flex items-center gap-4 shadow-2xs">
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500">Closed Out</p>
+                <h3 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 mt-0.5">{completedTasksCount} / {totalTasksCount} Completed</h3>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500">Closed Out</p>
-              <h3 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 mt-0.5">{completedTasksCount} / {totalTasksCount} Completed</h3>
-            </div>
-          </div>
 
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl flex items-center gap-4 shadow-2xs">
-            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-xl">
-              <Hourglass className="w-5 h-5 text-amber-500" />
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/85 p-5 rounded-2xl flex items-center gap-4 shadow-2xs">
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-xl">
+                <Hourglass className="w-5 h-5 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500">Halted Progress</p>
+                <h3 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 mt-0.5">{blockedTasksCount} Blocked Items</h3>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500">Halted Progress</p>
-              <h3 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 mt-0.5">{blockedTasksCount} Blocked Items</h3>
-            </div>
-          </div>
 
-        </section>
+          </section>
         )}
 
         {/* Primary Timeline Section Dashboard Canvas */}
         {activeModule === 'gantt' && (
           isViewerMode ? (
             <section className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4 sm:p-6 rounded-3xl shadow-sm overflow-hidden flex items-center justify-center min-h-[300px]" id="gantt-chart-static-section">
-            {isGeneratingImage ? (
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-8 h-8 border-4 border-indigo-200 dark:border-indigo-900/50 border-t-indigo-600 dark:border-t-indigo-500 rounded-full animate-spin" />
-                <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 animate-pulse">Rendering Gantt Chart Image...</p>
-              </div>
-            ) : staticGanttImage ? (
-              <div className="w-full h-full max-h-[75vh] overflow-auto scrollbar-thin flex justify-center">
-                <img 
-                  src={staticGanttImage} 
-                  alt="Static Gantt Chart Export" 
-                  className="max-w-max object-contain shadow-sm border border-slate-200/50 dark:border-slate-800/50 rounded-xl"
+              {isGeneratingImage ? (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-8 h-8 border-4 border-indigo-200 dark:border-indigo-900/50 border-t-indigo-600 dark:border-t-indigo-500 rounded-full animate-spin" />
+                  <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 animate-pulse">Rendering Gantt Chart Image...</p>
+                </div>
+              ) : staticGanttImage ? (
+                <div className="w-full h-full max-h-[75vh] overflow-auto scrollbar-thin flex justify-center">
+                  <img
+                    src={staticGanttImage}
+                    alt="Static Gantt Chart Export"
+                    className="max-w-max object-contain shadow-sm border border-slate-200/50 dark:border-slate-800/50 rounded-xl"
+                  />
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">Failed to render static image. Please refresh the page.</p>
+              )}
+
+              {/* Hidden DOM element for html2canvas to capture */}
+              <div className="absolute top-[-9999px] left-[-9999px] opacity-0 pointer-events-none">
+                <GanttTimeline
+                  tasks={tasks}
+                  filteredTasks={filteredTasks}
+                  bounds={bounds}
+                  zoom={zoom}
+                  onEditTask={handleEditTaskTrigger}
+                  onDeleteTask={handleDeleteTask}
+                  onUpdateTaskDates={handleUpdateTaskDates}
+                  timelineScrollRef={timelineScrollRef}
+                  restrictedMode={restrictedMode}
+                  personnel={personnel}
+                  collapsedTasks={collapsedTasks}
+                  onToggleTaskCollapse={handleToggleTaskCollapse}
+                  onViewTaskDetails={(task) => {
+                    setTaskToEdit(task);
+                    setIsTaskDetailsOpen(true);
+                  }}
+                  isNotifyMode={isNotifyMode}
+                  selectedTaskIds={selectedTaskIdsForNotify}
                 />
               </div>
-            ) : (
-              <p className="text-sm text-slate-500">Failed to render static image. Please refresh the page.</p>
-            )}
-            
-            {/* Hidden DOM element for html2canvas to capture */}
-            <div className="absolute top-[-9999px] left-[-9999px] opacity-0 pointer-events-none">
+            </section>
+          ) : (
+            <section className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4.5 sm:p-6 rounded-3xl shadow-sm" id="gantt-chart-section">
               <GanttTimeline
                 tasks={tasks}
                 filteredTasks={filteredTasks}
@@ -1029,7 +1059,7 @@ export default function App() {
                 onUpdateTaskDates={handleUpdateTaskDates}
                 timelineScrollRef={timelineScrollRef}
                 restrictedMode={restrictedMode}
-                personnel={personnel}
+                personnel={activeProject?.personnel || []}
                 collapsedTasks={collapsedTasks}
                 onToggleTaskCollapse={handleToggleTaskCollapse}
                 onViewTaskDetails={(task) => {
@@ -1038,39 +1068,15 @@ export default function App() {
                 }}
                 isNotifyMode={isNotifyMode}
                 selectedTaskIds={selectedTaskIdsForNotify}
+                onToggleTaskSelection={(id) => {
+                  setSelectedTaskIdsForNotify(prev =>
+                    prev.includes(id) ? prev.filter(tid => tid !== id) : [...prev, id]
+                  );
+                }}
+                onReorderTasks={handleReorderTasks}
               />
-            </div>
-          </section>
-        ) : (
-          <section className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 p-4.5 sm:p-6 rounded-3xl shadow-sm" id="gantt-chart-section">
-            <GanttTimeline
-              tasks={tasks}
-              filteredTasks={filteredTasks}
-              bounds={bounds}
-              zoom={zoom}
-              onEditTask={handleEditTaskTrigger}
-              onDeleteTask={handleDeleteTask}
-              onUpdateTaskDates={handleUpdateTaskDates}
-              timelineScrollRef={timelineScrollRef}
-              restrictedMode={restrictedMode}
-              personnel={activeProject?.personnel || []}
-              collapsedTasks={collapsedTasks}
-              onToggleTaskCollapse={handleToggleTaskCollapse}
-              onViewTaskDetails={(task) => {
-                setTaskToEdit(task);
-                setIsTaskDetailsOpen(true);
-              }}
-              isNotifyMode={isNotifyMode}
-              selectedTaskIds={selectedTaskIdsForNotify}
-              onToggleTaskSelection={(id) => {
-                setSelectedTaskIdsForNotify(prev => 
-                  prev.includes(id) ? prev.filter(tid => tid !== id) : [...prev, id]
-                );
-              }}
-              onReorderTasks={handleReorderTasks}
-            />
-          </section>
-        ))}
+            </section>
+          ))}
 
         {/* Project Architecture & Design Diagrams Hub */}
         {activeModule === 'diagrams' && (
