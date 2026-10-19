@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Plus,
   Sun,
@@ -95,6 +95,25 @@ export default function GanttChartHeader({
   const [isRolesDropdownOpen, setIsRolesDropdownOpen] = useState(false);
   const [isPriorityDropdownOpen, setIsPriorityDropdownOpen] = useState(false);
   const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
+  const addTaskBtnRef = useRef<HTMLButtonElement>(null);
+  const [showFab, setShowFab] = useState(false);
+  const canAddTask = !restrictedMode && isOwner !== false;
+  const canShowFab = canAddTask && activeModule === 'gantt';
+
+  // Show floating add button once the header's Add Task button scrolls out of view
+  useEffect(() => {
+    const el = addTaskBtnRef.current;
+    if (!el || !canAddTask) {
+      setShowFab(false);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowFab(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [canAddTask]);
 
   const toggleRoleFilter = (role: string) => {
     setFilters(prev => {
@@ -376,6 +395,7 @@ export default function GanttChartHeader({
           {/* New Task Trigger Button */}
           {!restrictedMode && isOwner !== false && (
             <button
+              ref={addTaskBtnRef}
               onClick={onAddTask}
               className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-100 dark:shadow-none font-sans cursor-pointer transition-all active:scale-98"
               id="btn-new-task-trigger"
@@ -610,6 +630,32 @@ export default function GanttChartHeader({
 
         </div>
       )}
+
+      {/* Floating Add Task Button (appears when header button is scrolled away) */}
+      <AnimatePresence>
+        {showFab && canShowFab && (
+          <motion.button
+            key="fab-add-task"
+            initial={{ opacity: 0, y: 24, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.95 }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            whileTap={{ scale: 0.94 }}
+            onClick={onAddTask}
+            title="Add Task"
+            aria-label="Add Task"
+            id="btn-fab-add-task"
+            className="group fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-40 h-14 pl-[15px] pr-[15px] hover:pr-5 rounded-2xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 hover:from-indigo-400 hover:via-indigo-500 hover:to-violet-500 text-white font-sans text-sm font-semibold flex items-center cursor-pointer select-none overflow-hidden ring-1 ring-white/20 dark:ring-white/10 shadow-[0_10px_30px_-5px_rgba(79,70,229,0.55)] hover:shadow-[0_14px_36px_-4px_rgba(99,102,241,0.7)] dark:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.7)] hover:-translate-y-0.5 transition-all duration-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400/50"
+          >
+            {/* Glossy highlight */}
+            <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent" />
+            <Plus className="relative w-6 h-6 shrink-0 stroke-[2.5] transition-transform duration-300 group-hover:rotate-90" />
+            <span className="relative max-w-0 opacity-0 whitespace-nowrap overflow-hidden group-hover:max-w-[100px] group-hover:opacity-100 group-hover:ml-2 group-focus-visible:max-w-[100px] group-focus-visible:opacity-100 group-focus-visible:ml-2 transition-all duration-300">
+              Add Task
+            </span>
+          </motion.button>
+        )}
+      </AnimatePresence>
     </header>
   );
 }
