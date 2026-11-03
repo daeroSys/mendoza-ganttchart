@@ -946,7 +946,7 @@ export default function App() {
       />
 
       {/* Main Stats Summary Strip & Content Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-6 mt-6 flex flex-col gap-6" id="dashboard-main-view">
+      <main className="flex-1 max-w-none w-full mx-auto px-6 lg:px-[2.5vw] mt-6 flex flex-col gap-6" id="dashboard-main-view">
 
         {/* KPI Stats Cards Strip */}
         {!isViewerMode && activeModule === 'gantt' && (

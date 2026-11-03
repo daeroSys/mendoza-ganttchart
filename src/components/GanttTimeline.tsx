@@ -101,6 +101,33 @@ export default function GanttTimeline({
     };
   };
 
+  // Click-and-drag panning of the timeline background
+  const [isPanning, setIsPanning] = useState(false);
+  const startPan = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('[id^="task-bar-"]')) return;
+    const scroller = e.currentTarget;
+    const startX = e.clientX;
+    const startScroll = scroller.scrollLeft;
+    const prevBehavior = scroller.style.scrollBehavior;
+    scroller.style.scrollBehavior = 'auto';
+    setIsPanning(true);
+    e.preventDefault();
+
+    const onMove = (ev: MouseEvent) => {
+      scroller.scrollLeft = startScroll - (ev.clientX - startX);
+    };
+    const onUp = () => {
+      scroller.style.scrollBehavior = prevBehavior;
+      setIsPanning(false);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
   // Drag operations
   const startDrag = (
     e: React.MouseEvent,
@@ -418,7 +445,8 @@ export default function GanttTimeline({
       {/* 2. Right Workspace: Dynamic Scrollable Canvas Gantt Graph */}
       <div 
         ref={timelineScrollRef}
-        className="flex-1 overflow-x-auto overflow-y-hidden select-none bg-white dark:bg-slate-900 scrollbar-thin divide-y divide-slate-100 dark:divide-slate-800"
+        onMouseDown={startPan}
+        className={`flex-1 overflow-x-auto overflow-y-hidden select-none ${isPanning ? 'cursor-grabbing' : 'cursor-grab'} bg-white dark:bg-slate-900 scrollbar-thin divide-y divide-slate-100 dark:divide-slate-800`}
         style={{ scrollBehavior: 'smooth' }}
         id="timeline-scroll-axis"
       >
